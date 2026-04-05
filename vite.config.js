@@ -23,4 +23,6 @@ export default defineConfig({
       },
     },
   },
+  // 基础路径配置
+  base: './',
 })
