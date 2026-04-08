@@ -157,6 +157,22 @@
         <el-tag size="small" style="margin-left: 10px" type="info">
           {{ currentFlower.family }} · {{ currentFlower.genus }}
         </el-tag>
+        <el-button 
+          :type="isFavorited ? 'danger' : 'default'" 
+          size="small" 
+          style="margin-left: 10px"
+          @click.stop="toggleFavorite"
+        >
+          {{ isFavorited ? '❤️ 已收藏' : '🤍 收藏' }}
+        </el-button>
+        <el-button 
+          type="success" 
+          size="small" 
+          style="margin-left: 5px"
+          @click.stop="addToGarden"
+        >
+          🌱 加入花园
+        </el-button>
       </template>
       
       <div v-if="currentFlower" class="flower-detail">
@@ -249,6 +265,10 @@ const pagination = reactive({
 // 详情弹窗
 const detailVisible = ref(false)
 const currentFlower = ref(null)
+const isFavorited = ref(false)
+
+// API基础URL - 使用相对路径，通过vite代理（与搜索保持一致）
+const API_BASE_URL = '/api'
 
 // 加载分类
 async function loadCategories() {
@@ -309,9 +329,128 @@ async function handleSearch() {
 }
 
 // 显示花卉详情
-function showFlowerDetail(flower) {
+async function showFlowerDetail(flower) {
   currentFlower.value = flower
   detailVisible.value = true
+  // 检查是否已收藏
+  await checkFavoriteStatus(flower)
+}
+
+// 检查收藏状态
+async function checkFavoriteStatus(flower) {
+  const token = localStorage.getItem('token')
+  if (!token) {
+    isFavorited.value = false
+    return
+  }
+  
+  try {
+    // 使用百科专属API
+    const res = await fetch(`${API_BASE_URL}/encyclopedia/favorites/check?flower_id=${flower.id}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const data = await res.json()
+    if (data.success) {
+      isFavorited.value = data.is_favorited
+    }
+  } catch (e) {
+    console.error('检查收藏失败:', e)
+  }
+}
+
+// 切换收藏状态
+async function toggleFavorite() {
+  const token = localStorage.getItem('token')
+  if (!token) {
+    ElMessage.warning('请先登录')
+    return
+  }
+  
+  if (isFavorited.value) {
+    // 取消收藏 - 需要获取收藏ID
+    try {
+      // 使用百科专属API
+      const res = await fetch(`${API_BASE_URL}/encyclopedia/favorites`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await res.json()
+      if (data.success) {
+        const fav = data.data.favorites.find(f => 
+          f.chinese_name === currentFlower.value?.chinese_name
+        )
+        if (fav) {
+          await fetch(`${API_BASE_URL}/encyclopedia/favorites/${fav.id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+          isFavorited.value = false
+          ElMessage.success('已取消收藏')
+        }
+      }
+    } catch (e) {
+      ElMessage.error('操作失败')
+    }
+  } else {
+    // 添加收藏
+    try {
+      // 使用百科专属API
+      const res = await fetch(`${API_BASE_URL}/encyclopedia/favorites`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          flower_id: currentFlower.value?.id,
+          chinese_name: currentFlower.value?.chinese_name,
+          latin_name: currentFlower.value?.latin_name,
+          image_url: currentFlower.value?.image_url || ''
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        isFavorited.value = true
+        ElMessage.success('收藏成功')
+      } else {
+        ElMessage.warning(data.error || '收藏失败')
+      }
+    } catch (e) {
+      ElMessage.error('收藏失败')
+    }
+  }
+}
+
+// 加入花园
+async function addToGarden() {
+  const token = localStorage.getItem('token')
+  if (!token) {
+    ElMessage.warning('请先登录')
+    return
+  }
+  
+  try {
+    const res = await fetch(`${API_BASE_URL}/community/garden`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        flower_id: currentFlower.value?.id,
+        flower_name: currentFlower.value?.chinese_name || currentFlower.value?.latin_name,
+        latin_name: currentFlower.value?.latin_name,
+        chinese_name: currentFlower.value?.chinese_name
+      })
+    })
+    const data = await res.json()
+    if (data.success) {
+      ElMessage.success('已添加到花园')
+    } else {
+      ElMessage.warning(data.error || '添加失败')
+    }
+  } catch (e) {
+    ElMessage.error('添加失败')
+  }
 }
 
 // 初始化

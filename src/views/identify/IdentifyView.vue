@@ -76,11 +76,21 @@
               <div class="result-label">最可能的类别</div>
               <div class="result-name">{{ results[0]?.name_cn }}</div>
               <div class="result-name-en">{{ results[0]?.name }}</div>
+              
+              <!-- 置信度大数字显示 -->
+              <div class="confidence-display">
+                <span class="confidence-value">{{ results[0]?.confidence }}</span>
+                <span class="confidence-symbol">%</span>
+                <span class="confidence-label">置信度</span>
+              </div>
+              
+              <!-- 置信度进度条 -->
               <div class="result-confidence">
                 <el-progress 
                   :percentage="results[0]?.confidence" 
                   :color="getProgressColor(results[0]?.confidence)"
                   :format="formatPercentage"
+                  :stroke-width="12"
                 />
               </div>
             </div>
@@ -95,6 +105,12 @@
               >
                 <span class="result-rank">{{ index + 2 }}</span>
                 <span class="result-item-name">{{ result.name_cn }}</span>
+                <div class="result-item-bar">
+                  <div 
+                    class="result-item-bar-fill" 
+                    :style="{ width: result.confidence + '%', background: getProgressColor(result.confidence) }"
+                  ></div>
+                </div>
                 <span class="result-item-confidence">{{ result.confidence }}%</span>
               </div>
             </div>
@@ -290,11 +306,39 @@ const getProgressColor = (percentage) => {
 .result-name-en {
   font-size: 14px;
   color: rgba(255, 255, 255, 0.8);
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+/* 置信度大数字显示 */
+.confidence-display {
+  display: flex;
+  align-items: baseline;
+  margin: 16px 0;
+  gap: 4px;
+}
+
+.confidence-value {
+  font-size: 48px;
+  font-weight: bold;
+  color: #fff;
+  line-height: 1;
+}
+
+.confidence-symbol {
+  font-size: 24px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.confidence-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-left: 8px;
+  text-transform: uppercase;
 }
 
 .result-confidence {
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .other-results {
@@ -310,6 +354,21 @@ const getProgressColor = (percentage) => {
   background: #f5f7fa;
   border-radius: 8px;
   gap: 12px;
+}
+
+.result-item-bar {
+  flex: 1;
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  min-width: 60px;
+}
+
+.result-item-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
 }
 
 .result-rank {

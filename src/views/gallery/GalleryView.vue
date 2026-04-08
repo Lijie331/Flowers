@@ -5,6 +5,14 @@ import { Search as SearchIcon, Picture as PictureIcon, ZoomIn as ZoomInIcon, War
 
 // API配置
 const API_BASE = 'http://127.0.0.1:5000/api'
+const API_BASE_URL = 'http://127.0.0.1:5000'
+
+// 获取完整图片URL
+const getFullImageUrl = (relativePath) => {
+  if (!relativePath) return ''
+  if (relativePath.startsWith('http')) return relativePath
+  return API_BASE_URL + relativePath
+}
 
 // 状态
 const loading = ref(false)
@@ -16,6 +24,7 @@ const flowerImages = ref([])
 const searchKeyword = ref('')
 const isSearching = ref(false)
 const imageLoading = ref(false)
+const galleryFavorited = ref(false)
 
 // 计算属性
 const displayedFlowers = computed(() => {
@@ -80,6 +89,8 @@ const viewFlowerDetail = async (flower) => {
     const data = await response.json()
     if (data.success) {
       flowerImages.value = data.data.images
+      // 检查收藏状态
+      await checkGalleryFavorite(flower.name)
     } else {
       ElMessage.error(data.error || '获取图片失败')
     }
@@ -88,6 +99,124 @@ const viewFlowerDetail = async (flower) => {
     ElMessage.error('获取图片失败，请重试')
   } finally {
     imageLoading.value = false
+  }
+}
+
+// 检查图库收藏状态
+async function checkGalleryFavorite(folderName) {
+  const token = localStorage.getItem('token')
+  if (!token) {
+    galleryFavorited.value = false
+    return
+  }
+  
+  try {
+    const res = await fetch(`${API_BASE}/community/favorites/check?folder_name=${encodeURIComponent(folderName)}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const data = await res.json()
+    if (data.success) {
+      galleryFavorited.value = data.is_favorited
+    }
+  } catch (e) {
+    console.error('检查收藏失败:', e)
+  }
+}
+
+// 切换收藏
+async function toggleGalleryFavorite() {
+  const token = localStorage.getItem('token')
+  if (!token) {
+    ElMessage.warning('请先登录')
+    return
+  }
+  
+  const flower = currentFlower.value
+  if (!flower) return
+  
+  if (galleryFavorited.value) {
+    // 取消收藏
+    try {
+      const res = await fetch(`${API_BASE}/community/favorites`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await res.json()
+      if (data.success) {
+        const fav = data.data.favorites.find(f => f.folder_name === flower.name)
+        if (fav) {
+          await fetch(`${API_BASE}/community/favorites/${fav.id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+          galleryFavorited.value = false
+          ElMessage.success('已取消收藏')
+        }
+      }
+    } catch (e) {
+      ElMessage.error('操作失败')
+    }
+  } else {
+    // 添加收藏
+    try {
+      const res = await fetch(`${API_BASE}/community/favorites`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          flower_id: flower.id,
+          folder_name: flower.name,
+          latin_name: flower.name_en,
+          chinese_name: flower.name_cn || flower.name
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        galleryFavorited.value = true
+        ElMessage.success('收藏成功')
+      } else {
+        ElMessage.warning(data.error || '收藏失败')
+      }
+    } catch (e) {
+      ElMessage.error('收藏失败')
+    }
+  }
+}
+
+// 加入花园
+async function addFlowerToGarden() {
+  const token = localStorage.getItem('token')
+  if (!token) {
+    ElMessage.warning('请先登录')
+    return
+  }
+  
+  const flower = currentFlower.value
+  if (!flower) return
+  
+  try {
+    const res = await fetch(`${API_BASE}/community/garden`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        flower_id: flower.id,
+        flower_name: flower.name,
+        latin_name: flower.name_en,
+        chinese_name: flower.name_cn || flower.name
+      })
+    })
+    const data = await res.json()
+    if (data.success) {
+      ElMessage.success('已添加到花园')
+    } else {
+      ElMessage.warning(data.error || '添加失败')
+    }
+  } catch (e) {
+    ElMessage.error('添加失败')
   }
 }
 
@@ -106,7 +235,7 @@ const clearSearch = () => {
 
 // 打开图片预览
 const previewImage = (image) => {
-  window.open(image.url, '_blank')
+  window.open(getFullImageUrl(image.url), '_blank')
 }
 
 // 组件挂载时获取数据
@@ -170,7 +299,7 @@ onMounted(() => {
             <div class="flower-cover">
               <el-image
                 v-if="flower.sample_image"
-                :src="flower.sample_image"
+                :src="getFullImageUrl(flower.sample_image)"
                 :alt="flower.name"
                 fit="cover"
                 class="flower-image"
@@ -209,8 +338,26 @@ onMounted(() => {
     >
       <template #header v-if="currentFlower">
         <div class="dialog-header">
-          <span class="flower-title">{{ currentFlower.name_cn || currentFlower.name }}</span>
-          <span class="flower-title-en" v-if="currentFlower.name_en !== currentFlower.name">{{ currentFlower.name_en }}</span>
+          <div>
+            <span class="flower-title">{{ currentFlower.name_cn || currentFlower.name }}</span>
+            <span class="flower-title-en" v-if="currentFlower.name_en !== currentFlower.name">{{ currentFlower.name_en }}</span>
+          </div>
+          <div class="dialog-actions">
+            <el-button 
+              :type="galleryFavorited ? 'danger' : 'default'" 
+              size="small"
+              @click="toggleGalleryFavorite"
+            >
+              {{ galleryFavorited ? '❤️ 已收藏' : '🤍 收藏' }}
+            </el-button>
+            <el-button 
+              type="success" 
+              size="small"
+              @click="addFlowerToGarden"
+            >
+              🌱 加入花园
+            </el-button>
+          </div>
         </div>
       </template>
       
@@ -225,7 +372,7 @@ onMounted(() => {
           >
             <div class="gallery-item" @click="previewImage(image)">
               <el-image
-                :src="image.url"
+                :src="getFullImageUrl(image.url)"
                 :alt="image.filename"
                 fit="cover"
                 class="gallery-image"

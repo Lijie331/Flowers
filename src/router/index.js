@@ -33,6 +33,52 @@ const router = createRouter({
       name: 'care',
       component: () => import('@/views/care/CareView.vue'),
     },
+    {
+      path: '/garden',
+      name: 'garden',
+      component: () => import('@/views/garden/GardenView.vue'),
+    },
+    {
+      path: '/garden/:id',
+      name: 'garden-detail',
+      component: () => import('@/views/garden/GardenDetailView.vue'),
+    },
+    {
+      path: '/favorites',
+      name: 'favorites',
+      component: () => import('@/views/favorites/FavoritesView.vue'),
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('@/views/profile/ProfileView.vue'),
+    },
+    {
+      path: '/profile/:id',
+      name: 'user-profile',
+      component: () => import('@/views/profile/UserProfileView.vue'),
+    },
+    {
+      path: '/settings/privacy',
+      name: 'privacy',
+      component: () => import('@/views/settings/PrivacySettings.vue'),
+    },
+    {
+      path: '/settings/level',
+      name: 'level',
+      component: () => import('@/views/settings/LevelView.vue'),
+    },
+    {
+      path: '/audit',
+      name: 'audit',
+      component: () => import('@/views/audit/AuditView.vue'),
+      meta: { requiresAdmin: true },
+    },
+    {
+      path: '/notifications',
+      name: 'notifications',
+      component: () => import('@/views/profile/NotificationsView.vue'),
+    },
   ],
 })
 
