@@ -103,7 +103,6 @@
                 fit="cover" 
                 class="flower-image"
                 loading="lazy"
-                :preview-src-list="[item.image_url]"
               >
                 <template #error>
                   <div class="image-placeholder">

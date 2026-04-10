@@ -4,8 +4,8 @@
       <template #header>
         <div class="header-row">
           <span class="title">🔔 我的通知</span>
-          <el-button v-if="unreadCount > 0" type="primary" size="small" @click="markAllRead">
-            全部已读
+          <el-button type="primary" size="small" @click="markAllRead">
+            一键已读
           </el-button>
         </div>
       </template>
@@ -44,8 +44,9 @@
           
           <div class="notification-actions">
             <el-tag v-if="notification.notification_type === 'like'" type="danger" size="small">❤️</el-tag>
+            <el-tag v-else-if="notification.notification_type === 'favorite'" type="warning" size="small">⭐</el-tag>
             <el-tag v-else-if="notification.notification_type === 'comment'" type="success" size="small">💬</el-tag>
-            <el-tag v-else-if="notification.notification_type === 'follow'" type="warning" size="small">➕</el-tag>
+            <el-tag v-else-if="notification.notification_type === 'follow'" type="info" size="small">➕</el-tag>
             
             <el-button v-if="!notification.is_read" type="primary" size="small" circle 
               @click.stop="markAsRead(notification)" title="标记已读">
@@ -66,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Check, Delete } from '@element-plus/icons-vue'
@@ -192,6 +193,11 @@ const markAllRead = async () => {
   const token = localStorage.getItem('token')
   if (!token) return
   
+  if (unreadCount.value === 0) {
+    ElMessage.info('暂无未读通知')
+    return
+  }
+  
   try {
     const response = await fetch(`${API_BASE}/notifications/read-all`, {
       method: 'PUT',
@@ -255,6 +261,15 @@ const onTabChange = () => {
 
 onMounted(() => {
   fetchNotifications()
+})
+
+// 监听tab切换
+watch(activeTab, (newTab) => {
+  if (newTab === 'unread') {
+    fetchUnreadOnly()
+  } else {
+    fetchNotifications()
+  }
 })
 </script>
 

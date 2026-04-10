@@ -1,11 +1,16 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search as SearchIcon, Picture as PictureIcon, ZoomIn as ZoomInIcon, WarnTriangleFilled } from '@element-plus/icons-vue'
 
 // API配置
 const API_BASE = 'http://127.0.0.1:5000/api'
 const API_BASE_URL = 'http://127.0.0.1:5000'
+
+// 路由
+const route = useRoute()
+const router = useRouter()
 
 // 获取完整图片URL
 const getFullImageUrl = (relativePath) => {
@@ -21,6 +26,7 @@ const flowerList = ref([])
 const searchResults = ref([])
 const currentFlower = ref(null)
 const flowerImages = ref([])
+const dialogVisible = ref(false)
 const searchKeyword = ref('')
 const isSearching = ref(false)
 const imageLoading = ref(false)
@@ -81,6 +87,7 @@ const searchFlowers = async () => {
 // 查看花卉详情
 const viewFlowerDetail = async (flower) => {
   currentFlower.value = flower
+  dialogVisible.value = true // 打开弹窗
   imageLoading.value = true
   flowerImages.value = []
   
@@ -223,8 +230,15 @@ async function addFlowerToGarden() {
 
 // 关闭详情弹窗
 const closeDetail = () => {
+  dialogVisible.value = false
   currentFlower.value = null
   flowerImages.value = []
+}
+
+// 处理弹窗关闭
+const handleCloseDetail = (done) => {
+  closeDetail()
+  done()
 }
 
 // 清除搜索
@@ -240,8 +254,44 @@ const previewImage = (image) => {
 }
 
 // 组件挂载时获取数据
-onMounted(() => {
+onMounted(async () => {
   fetchFlowerList()
+  
+  // 检查 URL 参数，如果有 flower 则自动打开对应花卉图册
+  const flowerParam = route.query.flower
+  if (flowerParam) {
+    let opened = false // 防止重复打开
+    
+    // 等待花卉列表加载完成后查找
+    const checkAndOpen = () => {
+      if (opened) return
+      const flowerName = decodeURIComponent(flowerParam)
+      const flower = flowerList.value.find(f => 
+        f.name === flowerName || 
+        f.name_cn === flowerName ||
+        f.name_cn?.includes(flowerName) ||
+        flowerName.includes(f.name) ||
+        (f.name_cn && flowerName.includes(f.name_cn))
+      )
+      if (flower) {
+        opened = true
+        viewFlowerDetail(flower)
+        // 清除 URL 参数
+        window.history.replaceState({}, '', window.location.pathname)
+      }
+    }
+    
+    // 如果列表已加载，直接检查
+    if (flowerList.value.length > 0) {
+      checkAndOpen()
+    } else {
+      // 否则等待列表加载
+      const unwatch = watch(flowerList, () => {
+        checkAndOpen()
+        unwatch()
+      })
+    }
+  }
 })
 </script>
 
@@ -331,10 +381,10 @@ onMounted(() => {
 
     <!-- 花卉详情弹窗 -->
     <el-dialog
-      v-model="currentFlower"
+      v-model="dialogVisible"
       :title="currentFlower ? (currentFlower.name_cn || currentFlower.name) : ''"
       width="80%"
-      :before-close="closeDetail"
+      :before-close="handleCloseDetail"
       class="detail-dialog"
     >
       <template #header v-if="currentFlower">
@@ -371,13 +421,15 @@ onMounted(() => {
             :key="index"
             :xs="12" :sm="8" :md="6" :lg="4"
           >
-            <div class="gallery-item" @click="previewImage(image)">
+            <div class="gallery-item">
               <el-image
                 :src="getFullImageUrl(image.url)"
                 :alt="image.filename"
                 fit="cover"
                 class="gallery-image"
-                loading="lazy"
+                :preview-src-list="flowerImages.map(img => getFullImageUrl(img.url))"
+                :initial-index="index"
+                referrerpolicy="no-referrer"
               >
                 <template #error>
                   <div class="image-error">
@@ -385,9 +437,6 @@ onMounted(() => {
                   </div>
                 </template>
               </el-image>
-              <div class="image-overlay">
-                <el-icon><ZoomInIcon /></el-icon>
-              </div>
             </div>
           </el-col>
         </el-row>
@@ -556,16 +605,22 @@ onMounted(() => {
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
+  background: #f0f2f5;
 }
 
 .gallery-image {
   width: 100%;
   height: 100%;
-  transition: transform 0.3s;
+  transition: transform 0.3s ease;
+  will-change: transform;
 }
 
 .gallery-item:hover .gallery-image {
-  transform: scale(1.1);
+  transform: scale(1.05);
+}
+
+.gallery-item:hover .image-overlay {
+  opacity: 1;
 }
 
 .image-overlay {
@@ -574,16 +629,13 @@ onMounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.gallery-item:hover .image-overlay {
-  opacity: 1;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .image-overlay .el-icon {
