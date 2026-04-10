@@ -143,15 +143,37 @@
           :key="item.id"
           :xs="24" :sm="12" :md="8" :lg="6" :xl="4"
         >
-          <el-card class="favorite-card" shadow="hover">
-            <div class="card-header">
-              <span class="flower-name">{{ item.chinese_name || item.flower_name }}</span>
+          <el-card class="favorite-card community-card" shadow="hover">
+            <div class="post-header" v-if="item.username">
+              <el-avatar :size="32" :src="item.user_avatar">{{ item.username?.charAt(0)?.toUpperCase() }}</el-avatar>
+              <div class="post-user-info">
+                <span class="post-username">{{ item.username }}</span>
+                <span class="post-time">{{ formatTime(item.created_at) }}</span>
+              </div>
               <el-icon class="unfavorite-icon" @click.stop="removeCommunityFavorite(item.id)"><Close /></el-icon>
             </div>
-            <p class="latin-name">{{ item.latin_name || item.flower_name }}</p>
+            <div class="post-content" v-if="item.content">
+              <p>{{ item.content.substring(0, 100) }}{{ item.content.length > 100 ? '...' : '' }}</p>
+            </div>
+            <div class="post-images" v-if="item.images && item.images.length">
+              <el-image 
+                v-for="(img, idx) in item.images.slice(0, 2)" 
+                :key="idx" 
+                :src="getFullImageUrl(img)" 
+                fit="cover" 
+                class="post-image"
+              />
+              <span v-if="item.images.length > 2" class="image-count">+{{ item.images.length - 2 }}</span>
+            </div>
+            <div class="post-tags" v-if="item.topics && item.topics.length">
+              <el-tag v-for="topic in item.topics.slice(0, 3)" :key="topic" size="small" type="warning">{{ topic }}</el-tag>
+            </div>
+            <div class="post-stats">
+              <span class="stat-item"><el-icon><Star /></el-icon> {{ item.likes_count || 0 }}</span>
+              <span class="stat-item"><el-icon><ChatDotRound /></el-icon> {{ item.comments_count || 0 }}</span>
+            </div>
             <div class="card-actions">
-              <el-button type="primary" size="small" @click="goToGallery(item)">查看图库</el-button>
-              <el-button type="success" size="small" @click="addToGarden(item)">加入花园</el-button>
+              <el-button type="primary" size="small" @click="goToPost(item)">查看帖子</el-button>
             </div>
           </el-card>
         </el-col>
@@ -164,7 +186,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Close, Cherry, ChatDotRound, Picture } from '@element-plus/icons-vue'
+import { Close, Cherry, ChatDotRound, Picture, Star } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -213,7 +235,7 @@ const fetchCommunityFavorites = async () => {
   
   communityLoading.value = true
   try {
-    const response = await fetch(`${API_BASE}/community/favorites`, {
+    const response = await fetch(`${API_BASE}/community/favorites/posts`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     const data = await response.json()
@@ -283,21 +305,23 @@ const removeEncyclopediaFavorite = async (id) => {
 // 取消社区收藏
 const removeCommunityFavorite = async (id) => {
   try {
-    await ElMessageBox.confirm('确定取消收藏吗？', '提示', {
+    await ElMessageBox.confirm('确定取消收藏该帖子吗？', '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning'
     })
     
     const token = localStorage.getItem('token')
-    const response = await fetch(`${API_BASE}/community/favorites/${id}`, {
-      method: 'DELETE',
+    const response = await fetch(`${API_BASE}/community/posts/${id}/favorite`, {
+      method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }
     })
     const data = await response.json()
     if (data.success) {
       ElMessage.success('已取消收藏')
       fetchCommunityFavorites()
+    } else {
+      ElMessage.error(data.error || '取消收藏失败')
     }
   } catch {}
 }
@@ -468,6 +492,29 @@ watch(activeTab, () => {
     fetchGalleryFavorites()
   }
 })
+
+// 辅助函数
+const formatTime = (time) => {
+  if (!time) return ''
+  const date = new Date(time)
+  const now = new Date()
+  const diff = now - date
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
+  return date.toLocaleDateString()
+}
+
+const getFullImageUrl = (url) => {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return `http://127.0.0.1:5000${url}`
+}
+
+const goToPost = (item) => {
+  router.push('/community')
+}
 </script>
 
 <style scoped>
@@ -613,5 +660,104 @@ watch(activeTab, () => {
 
 .card-actions .el-button {
   flex: 1;
+}
+
+/* 社区帖子卡片样式 */
+.community-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.community-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.post-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.post-user-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.post-username {
+  font-weight: 500;
+  color: #303133;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.post-time {
+  font-size: 12px;
+  color: #909399;
+}
+
+.post-content {
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #606266;
+  line-height: 1.6;
+}
+
+.post-content p {
+  margin: 0;
+}
+
+.post-images {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.post-image {
+  width: 100%;
+  height: 80px;
+  border-radius: 4px;
+}
+
+.image-count {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.post-stats {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0;
+  border-top: 1px solid #f0f0f0;
+  margin-bottom: 10px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #909399;
 }
 </style>
