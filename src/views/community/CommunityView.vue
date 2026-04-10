@@ -528,7 +528,7 @@ onUnmounted(() => { clearTimeout(window.draftTimer) })
 .image-more { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold; }
 .post-actions { display: flex; gap: 24px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
 .action-item { display: flex; align-items: center; gap: 4px; color: #909399; cursor: pointer; font-size: 14px; transition: color 0.2s; }
-.action-item:hover, .action-item.active { color: #409eff; }
+.action-item:hover, .action-item.active { color: #E53E3E; }
 .action-item.favorited { color: #F59E0B; }
 .action-icon { width: 18px; height: 18px; fill: currentColor; transition: fill 0.2s, transform 0.2s; display: inline-block; vertical-align: middle; }
 .action-icon:hover { transform: scale(1.1); }
