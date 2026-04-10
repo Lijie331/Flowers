@@ -139,6 +139,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, Phone } from '@element-plus/icons-vue'
 
@@ -147,6 +148,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'success'])
+const router = useRouter()
 
 const API_BASE_URL = 'http://127.0.0.1:5000'
 
@@ -288,6 +290,8 @@ const handleLogin = async () => {
         localStorage.setItem('user', JSON.stringify(data.user))
         emit('success', data.user)
         dialogVisible.value = false
+        // 跳转到主页
+        router.push('/')
       } else {
         ElMessage.error(data.message)
       }

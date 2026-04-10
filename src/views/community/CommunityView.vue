@@ -47,7 +47,7 @@
       
       <el-card v-for="post in posts" :key="post.id" class="post-card" shadow="hover">
         <div class="post-header">
-          <el-avatar :src="post.user_avatar" :size="40" class="user-avatar" @click="$router.push(`/profile/${post.user_id}`)">
+          <el-avatar :src="getFullAvatarUrl(post.user_avatar)" :size="40" class="user-avatar" @click="$router.push(`/profile/${post.user_id}`)">
             {{ post.username?.charAt(0)?.toUpperCase() }}
           </el-avatar>
           <div class="user-info">
@@ -91,7 +91,7 @@
         <div class="comments-section" v-if="post.showComments">
           <div class="comments-list">
             <div v-for="comment in post.comments" :key="comment.id" class="comment-item">
-              <el-avatar :size="28" :src="comment.user_avatar"><{{ comment.username?.charAt(0)?.toUpperCase() }}</el-avatar>
+              <el-avatar :size="28" :src="getFullAvatarUrl(comment.user_avatar)"><{{ comment.username?.charAt(0)?.toUpperCase() }}</el-avatar>
               <div class="comment-content">
                 <span class="comment-user">{{ comment.username }}</span>
                 <span class="comment-text">{{ comment.content }}</span>
@@ -486,6 +486,7 @@ const formatTime = (time) => {
 }
 
 const getFullImageUrl = (url) => { if (!url) return ''; if (url.startsWith('http')) return url; return IMAGE_BASE + url }
+const getFullAvatarUrl = (url) => { if (!url) return ''; if (url.startsWith('http')) return url; return IMAGE_BASE + url }
 const getImagePreviewUrl = (url) => url instanceof File ? URL.createObjectURL(url) : getFullImageUrl(url)
 const formatContent = (content) => { if (!content) return ''; return content.replace(/#(\w+)/g, '<span class="topic-link">#$1</span>').replace(/@(\w+)/g, '<span class="mention-link">@$1</span>') }
 const getImageGridClass = (count) => { if (!count) return ''; if (count === 1) return 'grid-1'; if (count === 2) return 'grid-2'; if (count === 4) return 'grid-4'; return 'grid-9' }
