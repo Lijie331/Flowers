@@ -241,11 +241,15 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { Search, RefreshRight, Picture } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 // API基础URL - 使用相对路径，通过vite代理
 const API_BASE = '/api'
+
+// 路由
+const route = useRoute()
 
 // 搜索相关
 const searchKeyword = ref('')
@@ -454,10 +458,41 @@ async function addToGarden() {
 }
 
 // 初始化
-onMounted(() => {
+onMounted(async () => {
   loadCategories()
   handleSearch()
+  
+  // 检查 URL 参数，如果有 flower_id 则自动打开详情
+  const flowerId = route.query.flower_id
+  if (flowerId) {
+    await openFlowerDetailById(flowerId)
+  }
 })
+
+// 根据 flower_id 打开详情弹窗
+async function openFlowerDetailById(flowerId) {
+  try {
+    // 获取花卉详情
+    const res = await fetch(`${API_BASE}/encyclopedia/detail/${flowerId}`)
+    const data = await res.json()
+    if (data.success) {
+      currentFlower.value = data.data
+      detailVisible.value = true
+      await checkFavoriteStatus(data.data)
+      // 打开详情后清除 URL 参数，避免刷新页面时重复触发
+      window.history.replaceState({}, '', window.location.pathname)
+    } else {
+      ElMessage.error('花卉不存在')
+      // 清除无效的 URL 参数
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  } catch (e) {
+    console.error('获取花卉详情失败:', e)
+    ElMessage.error('获取花卉详情失败')
+    // 清除无效的 URL 参数
+    window.history.replaceState({}, '', window.location.pathname)
+  }
+}
 </script>
 
 <style scoped>
