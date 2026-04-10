@@ -26,6 +26,15 @@
             </span>
           </template>
         </el-tab-pane>
+        <el-tab-pane label="图库收藏" name="gallery">
+          <template #label>
+            <span class="tab-label">
+              <el-icon><Picture /></el-icon>
+              图库收藏
+              <el-tag type="info" size="small" round>{{ galleryFavorites.length }}</el-tag>
+            </span>
+          </template>
+        </el-tab-pane>
       </el-tabs>
     </el-card>
 
@@ -75,6 +84,53 @@
       </el-row>
     </div>
 
+    <!-- 图库收藏列表 -->
+    <div v-loading="galleryLoading" class="favorites-grid" v-show="activeTab === 'gallery'">
+      <el-empty v-if="!galleryLoading && galleryFavorites.length === 0" description="还没有收藏任何图库图片">
+        <el-button type="primary" @click="$router.push('/gallery')">去图库看看</el-button>
+      </el-empty>
+      
+      <el-row :gutter="20" v-else>
+        <el-col 
+          v-for="item in galleryFavorites" 
+          :key="item.id"
+          :xs="24" :sm="12" :md="8" :lg="6" :xl="4"
+        >
+          <el-card class="favorite-card gallery-card" shadow="hover">
+            <div class="gallery-image-wrapper" v-if="item.image_url">
+              <el-image 
+                :src="item.image_url" 
+                fit="cover" 
+                class="flower-image"
+                loading="lazy"
+                :preview-src-list="[item.image_url]"
+              >
+                <template #error>
+                  <div class="image-placeholder">
+                    <el-icon><Picture /></el-icon>
+                  </div>
+                </template>
+              </el-image>
+            </div>
+            <div v-else class="gallery-image-wrapper">
+              <div class="image-placeholder">
+                <el-icon><Picture /></el-icon>
+              </div>
+            </div>
+            <div class="card-header">
+              <span class="flower-name">{{ item.flower_name }}</span>
+              <el-icon class="unfavorite-icon" @click.stop="removeGalleryFavorite(item.id)"><Close /></el-icon>
+            </div>
+            <p class="latin-name"><em>{{ item.latin_name || '未知学名' }}</em></p>
+            <div class="card-actions">
+              <el-button type="primary" size="small" @click="goToFlowerInGallery(item)">查看图库</el-button>
+              <el-button type="success" size="small" @click="addToGardenFromGallery(item)">加入花园</el-button>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
+    </div>
+
     <!-- 社区收藏列表 -->
     <div v-loading="communityLoading" class="favorites-grid" v-show="activeTab === 'community'">
       <el-empty v-if="!communityLoading && communityFavorites.length === 0" description="还没有收藏任何社区帖子">
@@ -117,8 +173,10 @@ const API_BASE = 'http://127.0.0.1:5000/api'
 const activeTab = ref('encyclopedia')
 const encyclopediaLoading = ref(false)
 const communityLoading = ref(false)
+const galleryLoading = ref(false)
 const encyclopediaFavorites = ref([])
 const communityFavorites = ref([])
+const galleryFavorites = ref([])
 
 // 获取百科收藏列表
 const fetchEncyclopediaFavorites = async () => {
@@ -170,6 +228,36 @@ const fetchCommunityFavorites = async () => {
   }
 }
 
+// 获取图库收藏列表
+const fetchGalleryFavorites = async () => {
+  const token = localStorage.getItem('token')
+  if (!token) {
+    ElMessage.warning('请先登录')
+    return
+  }
+  
+  galleryLoading.value = true
+  try {
+    const response = await fetch(`${API_BASE}/gallery/favorites`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const data = await response.json()
+    if (data.success) {
+      // 映射字段名：后端返回 chinese_name/sample_image，前端使用 flower_name/image_url
+      galleryFavorites.value = data.data.favorites.map(item => ({
+        ...item,
+        flower_name: item.chinese_name || item.folder_name,
+        image_url: item.sample_image ? `http://127.0.0.1:5000${item.sample_image}` : ''
+      }))
+    }
+  } catch (error) {
+    console.error('获取图库收藏失败:', error)
+    ElMessage.error('获取图库收藏失败')
+  } finally {
+    galleryLoading.value = false
+  }
+}
+
 // 取消百科收藏
 const removeEncyclopediaFavorite = async (id) => {
   try {
@@ -210,6 +298,28 @@ const removeCommunityFavorite = async (id) => {
     if (data.success) {
       ElMessage.success('已取消收藏')
       fetchCommunityFavorites()
+    }
+  } catch {}
+}
+
+// 取消图库收藏
+const removeGalleryFavorite = async (id) => {
+  try {
+    await ElMessageBox.confirm('确定取消收藏该图片吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    const token = localStorage.getItem('token')
+    const response = await fetch(`${API_BASE}/gallery/favorites/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const data = await response.json()
+    if (data.success) {
+      ElMessage.success('已取消收藏')
+      fetchGalleryFavorites()
     }
   } catch {}
 }
@@ -258,6 +368,45 @@ const goToGallery = (item) => {
   router.push(`/gallery?flower=${encodeURIComponent(item.flower_name)}`)
 }
 
+// 查看图库（从图库收藏）
+const goToFlowerInGallery = (item) => {
+  router.push(`/gallery?flower=${encodeURIComponent(item.flower_name)}`)
+}
+
+// 从图库收藏加入花园
+const addToGardenFromGallery = async (item) => {
+  const token = localStorage.getItem('token')
+  if (!token) {
+    ElMessage.warning('请先登录')
+    return
+  }
+  
+  try {
+    const response = await fetch(`${API_BASE}/community/garden`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        flower_id: item.flower_id,
+        flower_name: item.flower_name,
+        latin_name: item.latin_name,
+        chinese_name: item.chinese_name || item.flower_name
+      })
+    })
+    const data = await response.json()
+    if (data.success) {
+      ElMessage.success('已添加到花园')
+      router.push('/garden')
+    } else {
+      ElMessage.warning(data.error || '添加失败')
+    }
+  } catch (error) {
+    ElMessage.error('添加失败')
+  }
+}
+
 // 加入花园
 const addToGarden = async (item) => {
   const token = localStorage.getItem('token')
@@ -296,6 +445,7 @@ const addToGarden = async (item) => {
 const loadAllFavorites = () => {
   fetchEncyclopediaFavorites()
   fetchCommunityFavorites()
+  fetchGalleryFavorites()
 }
 
 onMounted(() => {
@@ -314,6 +464,8 @@ watch(activeTab, () => {
     fetchEncyclopediaFavorites()
   } else if (activeTab.value === 'community' && communityFavorites.value.length === 0) {
     fetchCommunityFavorites()
+  } else if (activeTab.value === 'gallery' && galleryFavorites.value.length === 0) {
+    fetchGalleryFavorites()
   }
 })
 </script>
@@ -371,6 +523,23 @@ watch(activeTab, () => {
 .encyclopedia-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.gallery-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.gallery-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.gallery-image-wrapper {
+  width: 100%;
+  height: 180px;
+  overflow: hidden;
+  border-radius: 4px 4px 0 0;
+  margin: -20px -20px 10px -20px;
 }
 
 .flower-image-wrapper {

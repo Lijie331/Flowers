@@ -111,7 +111,7 @@ async function checkGalleryFavorite(folderName) {
   }
   
   try {
-    const res = await fetch(`${API_BASE}/community/favorites/check?folder_name=${encodeURIComponent(folderName)}`, {
+    const res = await fetch(`${API_BASE}/gallery/favorites/check?folder_name=${encodeURIComponent(folderName)}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     const data = await res.json()
@@ -135,16 +135,16 @@ async function toggleGalleryFavorite() {
   if (!flower) return
   
   if (galleryFavorited.value) {
-    // 取消收藏
+    // 取消收藏 - 获取收藏ID
     try {
-      const res = await fetch(`${API_BASE}/community/favorites`, {
+      const res = await fetch(`${API_BASE}/gallery/favorites`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await res.json()
       if (data.success) {
         const fav = data.data.favorites.find(f => f.folder_name === flower.name)
         if (fav) {
-          await fetch(`${API_BASE}/community/favorites/${fav.id}`, {
+          await fetch(`${API_BASE}/gallery/favorites/${fav.id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
           })
@@ -158,7 +158,7 @@ async function toggleGalleryFavorite() {
   } else {
     // 添加收藏
     try {
-      const res = await fetch(`${API_BASE}/community/favorites`, {
+      const res = await fetch(`${API_BASE}/gallery/favorites`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -167,8 +167,9 @@ async function toggleGalleryFavorite() {
         body: JSON.stringify({
           flower_id: flower.id,
           folder_name: flower.name,
-          latin_name: flower.name_en,
-          chinese_name: flower.name_cn || flower.name
+          latin_name: flower.name_en || flower.name,
+          chinese_name: flower.name_cn || flower.name,
+          sample_image: flowerImages.value.length > 0 ? flowerImages.value[0].url : ''
         })
       })
       const data = await res.json()
