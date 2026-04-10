@@ -78,8 +78,8 @@
           <span class="action-item" :class="{ active: post.is_liked }" @click="toggleLike(post)">
             <svg class="action-icon" :class="{ 'is-filled': post.is_liked }"><use :href="post.is_liked ? '#heart-filled-icon' : '#heart-icon'"/></svg>{{ post.likes_count || 0 }}
           </span>
-          <span class="action-item" :class="{ active: post.is_favorited }" @click="toggleFavorite(post)">
-            <svg class="action-icon" :class="{ 'is-star': true, 'is-star-filled': post.is_favorited }"><use :href="post.is_favorited ? '#star-filled-icon' : '#star-icon'"/></svg>{{ post.favorites_count || 0 }}
+          <span class="action-item" :class="{ active: post.is_favorited, favorited: post.is_favorited }" @click="toggleFavorite(post)">
+            <svg class="action-icon" :class="{ 'is-star-filled': post.is_favorited }"><use :href="post.is_favorited ? '#star-filled-icon' : '#star-icon'"/></svg>{{ post.favorites_count || 0 }}
           </span>
           <span class="action-item" @click="showComments(post)">
             <el-icon><ChatDotRound /></el-icon>{{ post.comments_count || 0 }}
@@ -526,11 +526,12 @@ onUnmounted(() => { clearTimeout(window.draftTimer) })
 .post-image { width: 100%; height: 100%; }
 .image-more { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold; }
 .post-actions { display: flex; gap: 24px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
-.action-item { display: flex; align-items: center; gap: 4px; color: #909399; cursor: pointer; font-size: 14px; }
+.action-item { display: flex; align-items: center; gap: 4px; color: #909399; cursor: pointer; font-size: 14px; transition: color 0.2s; }
 .action-item:hover, .action-item.active { color: #409eff; }
-.action-icon { width: 18px; height: 18px; fill: #909399; transition: all 0.2s; display: inline-block; vertical-align: middle; }
+.action-item.favorited { color: #F59E0B; }
+.action-icon { width: 18px; height: 18px; fill: currentColor; transition: fill 0.2s, transform 0.2s; display: inline-block; vertical-align: middle; }
+.action-icon:hover { transform: scale(1.1); }
 .action-icon.is-filled { fill: #E53E3E; }
-.action-icon.is-star { fill: #909399; }
 .action-icon.is-star-filled { fill: #F59E0B; }
 .comments-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid #f0f0f0; }
 .comments-list { margin-bottom: 12px; max-height: 300px; overflow-y: auto; }
