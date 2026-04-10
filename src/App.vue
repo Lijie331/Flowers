@@ -382,9 +382,9 @@ onMounted(() => {
                 :size="32"
                 :src="userInfo?.avatar_url ? getFullAvatarUrl(userInfo.avatar_url) : undefined"
               >
-                {{ userInfo?.username?.charAt(0)?.toUpperCase() || 'U' }}
+                {{ (userInfo?.nickname || userInfo?.username)?.charAt(0)?.toUpperCase() || 'U' }}
               </el-avatar>
-              <span class="username">{{ userInfo?.username }}</span>
+              <span class="username">{{ userInfo?.nickname || userInfo?.username }}</span>
               <span v-if="userInfo?.level_info" class="level-badge">{{
                 userInfo.level_info.icon
               }}</span>
