@@ -1,10 +1,11 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import AuthDialog from './components/auth/AuthDialog.vue'
 
 const route = useRoute()
+const router = useRouter()
 const activePath = computed(() => route.path)
 const API_BASE = 'http://127.0.0.1:5000/api'
 const IMAGE_BASE = 'http://127.0.0.1:5000'
@@ -249,6 +250,27 @@ const openLogin = () => {
   showAuthDialog.value = true
 }
 
+// 路由跳转函数
+const goToFavorites = () => {
+  router.push('/favorites')
+}
+
+const goToNotifications = () => {
+  router.push('/notifications')
+}
+
+const goToProfile = () => {
+  router.push('/profile')
+}
+
+const goToGarden = () => {
+  router.push('/garden')
+}
+
+const goToCare = () => {
+  router.push('/care')
+}
+
 // 格式化时间
 const formatTime = (time) => {
   if (!time) return ''
@@ -370,7 +392,7 @@ onMounted(() => {
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item @click="$router.push('/notifications')">
+                <el-dropdown-item @click="goToNotifications">
                   🔔 我的通知
                   <el-badge
                     :value="unreadCount"
@@ -378,10 +400,10 @@ onMounted(() => {
                     style="margin-left: 8px"
                   />
                 </el-dropdown-item>
-                <el-dropdown-item @click="$router.push('/profile')">👤 个人中心</el-dropdown-item>
-                <el-dropdown-item @click="$router.push('/garden')">🌸 我的花园</el-dropdown-item>
-                <el-dropdown-item @click="$router.push('/favorites')">❤️ 我的收藏</el-dropdown-item>
-                <el-dropdown-item @click="$router.push('/care')">🌱 养护计划</el-dropdown-item>
+                <el-dropdown-item @click="goToProfile">👤 个人中心</el-dropdown-item>
+                <el-dropdown-item @click="goToGarden">🌸 我的花园</el-dropdown-item>
+                <el-dropdown-item @click="goToFavorites">❤️ 我的收藏</el-dropdown-item>
+                <el-dropdown-item @click="goToCare">🌱 养护计划</el-dropdown-item>
                 <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>

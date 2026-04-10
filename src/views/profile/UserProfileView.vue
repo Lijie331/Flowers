@@ -29,7 +29,7 @@
           </template>
         </div>
       </div>
-      
+
       <div class="stats-row">
         <div class="stat-item">
           <span class="stat-value">{{ profile?.posts_count || 0 }}</span>
@@ -51,17 +51,17 @@
       <template #header>
         <span>他的动态</span>
       </template>
-      
+
       <div v-if="posts.length === 0" class="empty-posts">
         <el-empty description="暂无动态" />
       </div>
-      
+
       <div v-else class="posts-list">
         <el-card v-for="post in posts" :key="post.id" class="post-item" shadow="hover">
           <div class="post-content">{{ post.content }}</div>
           <div class="post-images" v-if="post.images && post.images.length">
-            <el-image 
-              v-for="(img, idx) in post.images.slice(0, 9)" 
+            <el-image
+              v-for="(img, idx) in post.images.slice(0, 9)"
               :key="idx"
               :src="getFullUrl(img)"
               fit="cover"
@@ -78,7 +78,7 @@
           </div>
         </el-card>
       </div>
-      
+
       <div v-if="hasMore" class="load-more">
         <el-button @click="loadMore" :loading="loadingMore">加载更多</el-button>
       </div>
@@ -132,11 +132,11 @@ const formatTime = (time) => {
 
 const fetchProfile = async () => {
   const token = localStorage.getItem('token')
-  
+
   loading.value = true
   try {
     const res = await fetch(`${API_BASE}/user/profile/${route.params.id}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     })
     const data = await res.json()
     if (data.success) {
@@ -144,10 +144,10 @@ const fetchProfile = async () => {
     } else {
       ElMessage.error(data.error || '获取用户信息失败')
     }
-  } catch (e) { 
-    ElMessage.error('获取失败') 
-  } finally { 
-    loading.value = false 
+  } catch (e) {
+    ElMessage.error('获取失败')
+  } finally {
+    loading.value = false
   }
 }
 
@@ -156,15 +156,22 @@ const fetchPosts = async () => {
   try {
     const headers = {}
     if (token) headers['Authorization'] = `Bearer ${token}`
-    headers['X-User-Id'] = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).id : ''
-    
-    const res = await fetch(`${API_BASE}/community/posts?user_id=${route.params.id}&page=1&page_size=10`, { headers })
+    headers['X-User-Id'] = localStorage.getItem('user')
+      ? JSON.parse(localStorage.getItem('user')).id
+      : ''
+
+    const res = await fetch(
+      `${API_BASE}/community/posts?user_id=${route.params.id}&page=1&page_size=10`,
+      { headers },
+    )
     const data = await res.json()
     if (data.success) {
       posts.value = data.data.posts || []
       hasMore.value = data.data.page < data.data.total_pages
     }
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 const loadMore = async () => {
@@ -174,15 +181,24 @@ const loadMore = async () => {
     const token = localStorage.getItem('token')
     const headers = {}
     if (token) headers['Authorization'] = `Bearer ${token}`
-    headers['X-User-Id'] = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')).id : ''
-    
-    const res = await fetch(`${API_BASE}/community/posts?user_id=${route.params.id}&page=${currentPage.value}&page_size=10`, { headers })
+    headers['X-User-Id'] = localStorage.getItem('user')
+      ? JSON.parse(localStorage.getItem('user')).id
+      : ''
+
+    const res = await fetch(
+      `${API_BASE}/community/posts?user_id=${route.params.id}&page=${currentPage.value}&page_size=10`,
+      { headers },
+    )
     const data = await res.json()
     if (data.success) {
       posts.value = [...posts.value, ...(data.data.posts || [])]
       hasMore.value = data.data.page < data.data.total_pages
     }
-  } catch (e) { console.error(e) } finally { loadingMore.value = false }
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loadingMore.value = false
+  }
 }
 
 const toggleFollow = async () => {
@@ -194,7 +210,7 @@ const toggleFollow = async () => {
   try {
     const res = await fetch(`${API_BASE}/user/follow/${route.params.id}`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     })
     const data = await res.json()
     if (data.success) {
@@ -206,7 +222,9 @@ const toggleFollow = async () => {
       }
       ElMessage.success(data.message)
     }
-  } catch { ElMessage.error('操作失败') }
+  } catch {
+    ElMessage.error('操作失败')
+  }
 }
 
 onMounted(() => {
@@ -216,43 +234,125 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.user-profile-container { padding: 20px; max-width: 800px; margin: 0 auto; }
+.user-profile-container {
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
 
-.profile-card { margin-bottom: 20px; }
+.profile-card {
+  margin-bottom: 20px;
+}
 
-.profile-header { display: flex; gap: 20px; align-items: flex-start; }
+.profile-header {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
 
-.info { flex: 1; }
-.info h2 { margin: 0 0 10px; font-size: 24px; }
+.info {
+  flex: 1;
+}
+.info h2 {
+  margin: 0 0 10px;
+  font-size: 24px;
+}
 
-.level-badge { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 14px; }
+.level-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
 
-.bio { color: #666; margin: 10px 0; }
-.bio.empty { color: #999; font-style: italic; }
+.bio {
+  color: #666;
+  margin: 10px 0;
+}
+.bio.empty {
+  color: #999;
+  font-style: italic;
+}
 
-.actions { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
 
-.stats-row { display: flex; justify-content: space-around; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
+.stats-row {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
 
-.stat-item { text-align: center; }
-.stat-value { display: block; font-size: 20px; font-weight: bold; color: #303133; }
-.stat-label { font-size: 12px; color: #909399; }
+.stat-item {
+  text-align: center;
+}
+.stat-value {
+  display: block;
+  font-size: 20px;
+  font-weight: bold;
+  color: #303133;
+}
+.stat-label {
+  font-size: 12px;
+  color: #909399;
+}
 
-.posts-card { margin-top: 20px; }
+.posts-card {
+  margin-top: 20px;
+}
 
-.posts-list { display: flex; flex-direction: column; gap: 16px; }
+.posts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
-.post-item { cursor: pointer; }
+.post-item {
+  cursor: pointer;
+}
 
-.post-content { font-size: 15px; line-height: 1.6; margin-bottom: 12px; }
+.post-content {
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
 
-.post-images { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 12px; }
+.post-images {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-bottom: 12px;
+}
 
-.post-image { width: 100%; height: 80px; border-radius: 4px; cursor: pointer; }
+.post-image {
+  width: 100%;
+  height: 80px;
+  border-radius: 4px;
+  cursor: pointer;
+}
 
-.post-meta { display: flex; justify-content: space-between; font-size: 12px; color: #909399; }
+.post-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #909399;
+}
 
-.post-stats { display: flex; gap: 12px; align-items: center; }
+.post-stats {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
 
-.load-more { text-align: center; padding: 20px; }
+.load-more {
+  text-align: center;
+  padding: 20px;
+}
 </style>
