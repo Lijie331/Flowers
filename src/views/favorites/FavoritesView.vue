@@ -152,7 +152,7 @@
               <el-icon class="unfavorite-icon" @click.stop="removeCommunityFavorite(item.id)"><Close /></el-icon>
             </div>
             <div class="post-content" v-if="item.content">
-              <p>{{ item.content.substring(0, 100) }}{{ item.content.length > 100 ? '...' : '' }}</p>
+              <p v-html="getContentPreview(item.content)"></p>
             </div>
             <div class="post-images" v-if="item.images && item.images.length">
               <el-image 
@@ -505,6 +505,63 @@ const formatTime = (time) => {
   return date.toLocaleDateString()
 }
 
+// 获取内容预览（处理富文本HTML，返回纯文本或截断的HTML）
+const getContentPreview = (content) => {
+  if (!content) return ''
+  // 提取纯文本用于计算长度
+  const tempDiv = document.createElement('div')
+  tempDiv.innerHTML = content
+  const plainText = tempDiv.textContent || tempDiv.innerText || ''
+  
+  if (plainText.length <= 100) {
+    // 如果文本较短，直接返回原始HTML
+    return content
+  }
+  
+  // 文本较长时，需要截断HTML并添加省略号
+  // 创建一个临时元素来解析HTML
+  const fullDiv = document.createElement('div')
+  fullDiv.innerHTML = content
+  
+  let charCount = 0
+  let truncated = ''
+  const nodes = fullDiv.childNodes
+  
+  const traverse = (node) => {
+    if (charCount >= 100) return
+    
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent
+      if (charCount + text.length > 100) {
+        truncated += text.substring(0, 100 - charCount)
+        charCount = 100
+      } else {
+        truncated += text
+        charCount += text.length
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const tag = node.tagName.toLowerCase()
+      if (['p', 'div', 'br', 'tr'].includes(tag)) {
+        if (truncated && !truncated.endsWith('\n')) {
+          truncated += '\n'
+        }
+      }
+      truncated += `<${tag}>`
+      for (const child of node.childNodes) {
+        traverse(child)
+      }
+      truncated += `</${tag}>`
+    }
+  }
+  
+  for (const node of nodes) {
+    traverse(node)
+    if (charCount >= 100) break
+  }
+  
+  return truncated + (plainText.length > 100 ? '...' : '')
+}
+
 const getFullImageUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http')) return url
@@ -706,10 +763,23 @@ const goToPost = (item) => {
   font-size: 14px;
   color: #606266;
   line-height: 1.6;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
 }
 
 .post-content p {
   margin: 0;
+}
+
+.post-content :deep(strong) {
+  font-weight: 600;
+}
+
+.post-content :deep(em) {
+  font-style: italic;
 }
 
 .post-images {

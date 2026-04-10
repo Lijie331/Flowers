@@ -36,9 +36,7 @@
               <span class="actor-name">{{ notification.actor_name }}</span>
               <span class="action-text">{{ notification.type_text }}</span>
             </div>
-            <div class="notification-preview" v-if="notification.target_content">
-              "{{ notification.target_content }}..."
-            </div>
+            <div class="notification-preview" v-if="notification.target_content" v-html="getContentPreview(notification.target_content)"></div>
             <div class="notification-time">{{ formatTime(notification.created_at) }}</div>
           </div>
           
@@ -94,6 +92,22 @@ const formatTime = (time) => {
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
   if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
   return date.toLocaleDateString()
+}
+
+// 获取内容预览（处理富文本HTML）
+const getContentPreview = (content) => {
+  if (!content) return ''
+  // 解码HTML实体
+  const tempDiv = document.createElement('div')
+  tempDiv.innerHTML = content
+  const decoded = tempDiv.textContent || tempDiv.innerText || content
+  
+  if (decoded.length <= 50) {
+    return `<p>${content}</p>`
+  }
+  // 截断处理
+  const preview = decoded.substring(0, 50) + '...'
+  return `<p>"${preview}"</p>`
 }
 
 const fetchNotifications = async () => {
@@ -250,15 +264,6 @@ const handleNotificationClick = (notification) => {
   }
 }
 
-// 监听tab切换
-const onTabChange = () => {
-  if (activeTab.value === 'unread') {
-    fetchUnreadOnly()
-  } else {
-    fetchNotifications()
-  }
-}
-
 onMounted(() => {
   fetchNotifications()
 })
@@ -350,9 +355,21 @@ watch(activeTab, (newTab) => {
   font-size: 13px;
   color: #909399;
   margin-top: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.notification-preview :deep(strong) {
+  font-weight: 600;
+  color: #606266;
+}
+
+.notification-preview :deep(em) {
+  font-style: italic;
+}
+
+.notification-preview :deep(p) {
+  margin: 4px 0;
 }
 
 .notification-time {
