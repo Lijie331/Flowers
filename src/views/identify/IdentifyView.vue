@@ -72,7 +72,17 @@
       <el-col :xs="24" :md="12">
         <el-card class="result-card">
           <template #header>
-            <span>识别结果</span>
+            <div class="card-header">
+              <span>识别结果</span>
+              <el-button
+                size="small"
+                type="primary"
+                link
+                @click="$router.push('/identify/history')"
+              >
+                查看历史
+              </el-button>
+            </div>
           </template>
 
           <!-- 加载状态 -->
@@ -208,6 +218,9 @@ const handleIdentify = async () => {
 
     const response = await fetch(`${API_BASE_URL}/api/classify`, {
       method: 'POST',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
       body: formData,
     })
 

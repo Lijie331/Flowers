@@ -24,6 +24,11 @@ const router = createRouter({
       component: () => import('@/views/identify/IdentifyView.vue'),
     },
     {
+      path: '/identify/history',
+      name: 'identify-history',
+      component: () => import('@/views/identify/HistoryView.vue'),
+    },
+    {
       path: '/community',
       name: 'community',
       component: () => import('@/views/community/CommunityView.vue'),
