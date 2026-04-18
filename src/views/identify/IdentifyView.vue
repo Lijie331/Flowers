@@ -10,6 +10,24 @@
             </div>
           </template>
 
+          <!-- 模型选择下拉框 -->
+          <div class="model-selector">
+            <span class="model-label">选择模型：</span>
+            <el-select v-model="selectedModel" placeholder="请选择模型" size="default">
+              <el-option
+                v-for="model in modelOptions"
+                :key="model.value"
+                :label="model.label"
+                :value="model.value"
+              >
+                <div class="model-option">
+                  <span>{{ model.label }}</span>
+                  <span class="model-badge">{{ model.badge }}</span>
+                </div>
+              </el-option>
+            </el-select>
+          </div>
+
           <!-- 上传区域 -->
           <el-upload
             ref="uploadRef"
@@ -37,8 +55,8 @@
 
           <!-- 操作按钮 -->
           <el-space style="margin-top: 16px" wrap>
-            <el-button 
-              type="primary" 
+            <el-button
+              type="primary"
               :loading="loading"
               :disabled="!selectedFile"
               @click="handleIdentify"
@@ -64,10 +82,7 @@
           </div>
 
           <!-- 无结果状态 -->
-          <el-empty 
-            v-else-if="!results.length" 
-            description="上传图片后显示识别结果" 
-          />
+          <el-empty v-else-if="!results.length" description="上传图片后显示识别结果" />
 
           <!-- 识别结果 -->
           <div v-else class="result-content">
@@ -76,18 +91,18 @@
               <div class="result-label">最可能的类别</div>
               <div class="result-name">{{ results[0]?.name_cn }}</div>
               <div class="result-name-en">{{ results[0]?.name }}</div>
-              
+
               <!-- 置信度大数字显示 -->
               <div class="confidence-display">
                 <span class="confidence-value">{{ results[0]?.confidence }}</span>
                 <span class="confidence-symbol">%</span>
                 <span class="confidence-label">置信度</span>
               </div>
-              
+
               <!-- 置信度进度条 -->
               <div class="result-confidence">
-                <el-progress 
-                  :percentage="results[0]?.confidence" 
+                <el-progress
+                  :percentage="results[0]?.confidence"
                   :color="getProgressColor(results[0]?.confidence)"
                   :format="formatPercentage"
                   :stroke-width="12"
@@ -98,17 +113,20 @@
             <!-- 其他结果 -->
             <div class="other-results">
               <div class="result-label">其他可能</div>
-              <div 
-                v-for="(result, index) in results.slice(1)" 
+              <div
+                v-for="(result, index) in results.slice(1)"
                 :key="result.class_id"
                 class="result-item"
               >
                 <span class="result-rank">{{ index + 2 }}</span>
                 <span class="result-item-name">{{ result.name_cn }}</span>
                 <div class="result-item-bar">
-                  <div 
-                    class="result-item-bar-fill" 
-                    :style="{ width: result.confidence + '%', background: getProgressColor(result.confidence) }"
+                  <div
+                    class="result-item-bar-fill"
+                    :style="{
+                      width: result.confidence + '%',
+                      background: getProgressColor(result.confidence),
+                    }"
                   ></div>
                 </div>
                 <span class="result-item-confidence">{{ result.confidence }}%</span>
@@ -128,6 +146,17 @@ import { UploadFilled, MagicStick, Loading } from '@element-plus/icons-vue'
 
 // API地址 - 根据环境配置
 const API_BASE_URL = 'http://127.0.0.1:5000'
+
+// 模型选项配置
+const modelOptions = [
+  { value: 'clip_rn50', label: 'ResNet50', badge: '快速' },
+  { value: 'clip_rn101', label: 'ResNet101', badge: '平衡' },
+  { value: 'clip_vit_b16', label: 'ViT-B/16', badge: '高精度(速度较慢)' },
+  { value: 'clip_vit_l14', label: 'ViT-L/14', badge: '最高精度(速度慢)' },
+]
+
+// 当前选中的模型
+const selectedModel = ref('clip_rn50')
 
 // 状态变量
 const uploadRef = ref(null)
@@ -174,6 +203,8 @@ const handleIdentify = async () => {
     const formData = new FormData()
     formData.append('image', selectedFile.value)
     formData.append('top_k', 5)
+    // 传递选中的模型名称
+    formData.append('model', selectedModel.value)
 
     const response = await fetch(`${API_BASE_URL}/api/classify`, {
       method: 'POST',
