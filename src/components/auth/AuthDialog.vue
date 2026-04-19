@@ -285,6 +285,10 @@ const handleLogin = async () => {
       
       if (data.success) {
         ElMessage.success('登录成功')
+        // 调试：查看返回的用户数据
+        console.log('登录返回的完整数据:', data)
+        console.log('用户信息:', data.user)
+        console.log('is_admin值:', data.user?.is_admin)
         // 保存token和用户信息
         localStorage.setItem('token', data.token)
         localStorage.setItem('user', JSON.stringify(data.user))

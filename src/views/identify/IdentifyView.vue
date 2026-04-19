@@ -48,9 +48,34 @@
             </div>
           </el-upload>
 
-          <!-- 图片预览 -->
-          <div v-if="imageUrl" class="image-preview">
-            <el-image :src="imageUrl" fit="contain" :preview-src-list="[imageUrl]" />
+          <!-- 图片预览 + 框选区域 -->
+          <div v-if="imageUrl" class="image-preview-wrapper">
+            <div
+              class="crop-container"
+              ref="cropContainerRef"
+              @mousedown="onMouseDown"
+              @mousemove="onMouseMove"
+              @mouseup="onMouseUp"
+              @mouseleave="onMouseUp"
+            >
+              <el-image
+                :src="imageUrl"
+                fit="contain"
+                class="preview-image"
+                @load="onImageLoad"
+              />
+
+              <!-- 选区框 -->
+              <div v-if="crop.visible" class="crop-box" :style="cropStyle"></div>
+            </div>
+
+            <div class="crop-hint">
+              <span v-if="!crop.visible">拖拽鼠标创建选区</span>
+              <span v-else>
+                已选择: {{ Math.round(crop.width) }} × {{ Math.round(crop.height) }}
+              </span>
+              <el-button v-if="crop.visible" size="small" text @click="clearCrop"> 清除 </el-button>
+            </div>
           </div>
 
           <!-- 操作按钮 -->
@@ -150,23 +175,23 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, MagicStick, Loading } from '@element-plus/icons-vue'
 
 // API地址 - 根据环境配置
 const API_BASE_URL = 'http://127.0.0.1:5000'
 
-// 模型选项配置
-const modelOptions = [
-  { value: 'clip_rn50', label: 'ResNet50', badge: '快速' },
-  { value: 'clip_rn101', label: 'ResNet101', badge: '平衡' },
-  { value: 'clip_vit_b16', label: 'ViT-B/16', badge: '高精度(速度较慢)' },
-  { value: 'clip_vit_l14', label: 'ViT-L/14', badge: '最高精度(速度慢)' },
-]
+// 模型选项配置 - 动态从后端获取
+const modelOptions = ref([
+  { value: 'clip_rn50', label: 'ResNet50', badge: '快速', enabled: true },
+  { value: 'clip_rn101', label: 'ResNet101', badge: '平衡', enabled: true },
+  { value: 'clip_vit_b16', label: 'ViT-B/16', badge: '高精度(速度较慢)', enabled: true },
+  { value: 'clip_vit_l14', label: 'ViT-L/14', badge: '最高精度(速度慢)', enabled: true },
+])
 
-// 当前选中的模型
-const selectedModel = ref('clip_rn50')
+// 当前选中的模型（初始值，后面会自动从API更新）
+const selectedModel = ref('')
 
 // 状态变量
 const uploadRef = ref(null)
@@ -174,6 +199,225 @@ const selectedFile = ref(null)
 const imageUrl = ref('')
 const loading = ref(false)
 const results = ref([])
+const cropContainerRef = ref(null)
+
+// 图片加载状态
+const imageLoaded = ref(false)
+const imageRect = ref({ left: 0, top: 0, width: 0, height: 0 })
+
+// 框选状态
+const crop = ref({
+  visible: false,
+  drawing: false, // ⭐ 是否正在画框
+
+  x: 0,
+  y: 0,
+  width: 0,
+  height: 0,
+
+  dragging: false,
+  resizing: false,
+  resizeDir: '',
+
+  startX: 0,
+  startY: 0,
+
+  originX: 0,
+  originY: 0,
+  originW: 0,
+  originH: 0,
+})
+
+// 图片加载后获取真实显示区域
+const onImageLoad = () => {
+  imageLoaded.value = true
+  const container = cropContainerRef.value
+  if (!container) return
+  const imgEl = container.querySelector('.preview-image')
+  if (!imgEl) return
+  imageRect.value = {
+    left: imgEl.offsetLeft,
+    top: imgEl.offsetTop,
+    width: imgEl.offsetWidth,
+    height: imgEl.offsetHeight,
+  }
+}
+
+const getMousePos = (e) => {
+  if (!cropContainerRef.value) return { x: 0, y: 0 }
+  const rect = cropContainerRef.value.getBoundingClientRect()
+  return {
+    x: e.clientX - rect.left - imageRect.value.left,
+    y: e.clientY - rect.top - imageRect.value.top,
+    rect,
+  }
+}
+
+// 🟢 框选样式 - 相对于图片实际显示区域
+const cropStyle = computed(() => {
+  return {
+    left: crop.value.x + 'px',
+    top: crop.value.y + 'px',
+    width: crop.value.width + 'px',
+    height: crop.value.height + 'px',
+  }
+})
+
+// 🟢 鼠标按下
+const onMouseDown = (e) => {
+  const { x, y } = getMousePos(e)
+  e.preventDefault()
+
+  // 👉 点在已有框内 → 拖动
+  if (
+    crop.value.visible &&
+    x > crop.value.x &&
+    x < crop.value.x + crop.value.width &&
+    y > crop.value.y &&
+    y < crop.value.y + crop.value.height
+  ) {
+    crop.value.dragging = true
+    crop.value.startX = x
+    crop.value.startY = y
+    return
+  }
+
+  // 👉 开始画新框
+  crop.value.drawing = true
+  crop.value.visible = true
+
+  crop.value.x = x
+  crop.value.y = y
+  crop.value.width = 0
+  crop.value.height = 0
+
+  crop.value.startX = x
+  crop.value.startY = y
+}
+
+// 🟢 鼠标移动
+const onMouseMove = (e) => {
+  if (!cropContainerRef.value) return
+
+  const { x, y, rect } = getMousePos(e)
+
+  // 👉 拖动
+  if (crop.value.dragging) {
+    const dx = x - crop.value.startX
+    const dy = y - crop.value.startY
+
+    crop.value.x = clamp(crop.value.x + dx, 0, rect.width - crop.value.width)
+    crop.value.y = clamp(crop.value.y + dy, 0, rect.height - crop.value.height)
+
+    crop.value.startX = x
+    crop.value.startY = y
+    return
+  }
+
+  // 👉 缩放
+  if (crop.value.resizing) {
+    resizeCrop(x, y, rect)
+    return
+  }
+
+  // 👉 画框（关键）
+  if (crop.value.drawing) {
+    crop.value.x = Math.min(crop.value.startX, x)
+    crop.value.y = Math.min(crop.value.startY, y)
+    crop.value.width = Math.abs(x - crop.value.startX)
+    crop.value.height = Math.abs(y - crop.value.startY)
+  }
+}
+
+// 🟢 鼠标抬起
+const onMouseUp = () => {
+  crop.value.drawing = false
+  crop.value.dragging = false
+  crop.value.resizing = false
+}
+
+// 🟢 开始缩放
+const startResize = (dir) => {
+  crop.value.resizing = true
+  crop.value.resizeDir = dir
+
+  crop.value.originX = crop.value.x
+  crop.value.originY = crop.value.y
+  crop.value.originW = crop.value.width
+  crop.value.originH = crop.value.height
+}
+
+// 🟢 缩放逻辑
+const resizeCrop = (x, y, rect) => {
+  let { originX, originY, originW, originH } = crop.value
+
+  if (crop.value.resizeDir.includes('r')) {
+    crop.value.width = clamp(x - originX, 10, rect.width - originX)
+  }
+  if (crop.value.resizeDir.includes('l')) {
+    const newX = clamp(x, 0, originX + originW - 10)
+    crop.value.width = originX + originW - newX
+    crop.value.x = newX
+  }
+  if (crop.value.resizeDir.includes('b')) {
+    crop.value.height = clamp(y - originY, 10, rect.height - originY)
+  }
+  if (crop.value.resizeDir.includes('t')) {
+    const newY = clamp(y, 0, originY + originH - 10)
+    crop.value.height = originY + originH - newY
+    crop.value.y = newY
+  }
+}
+
+// 🟢 边界限制
+const clamp = (val, min, max) => {
+  return Math.max(min, Math.min(max, val))
+}
+
+// 🟢 清除
+const clearCrop = () => {
+  crop.value.visible = false
+}
+
+// 加载模型列表
+const loadModels = async () => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/models`)
+    const data = await res.json()
+    if (data.success) {
+      const availableModels = data.models
+        .filter((m) => m.enabled && m.checkpoint_exists)
+        .map((m) => ({
+          value: m.value,
+          label: m.label,
+          badge: m.badge,
+        }))
+
+      modelOptions.value = availableModels
+
+      // 如果当前选择的模型不在列表中，自动切换到第一个
+      if (
+        availableModels.length > 0 &&
+        !availableModels.find((m) => m.value === selectedModel.value)
+      ) {
+        selectedModel.value = availableModels[0].value
+      }
+    }
+  } catch (error) {
+    console.error('加载模型列表失败:', error)
+  }
+}
+
+onMounted(() => {
+  loadModels()
+  window.addEventListener('mouseup', onMouseUp)
+})
+
+import { onUnmounted } from 'vue'
+
+onUnmounted(() => {
+  window.removeEventListener('mouseup', onMouseUp)
+})
 
 // 处理文件选择
 const handleFileChange = (uploadFile) => {
@@ -197,6 +441,7 @@ const handleReset = () => {
   selectedFile.value = null
   imageUrl.value = ''
   results.value = []
+  clearCrop()
 }
 
 // 发送识别请求
@@ -213,8 +458,23 @@ const handleIdentify = async () => {
     const formData = new FormData()
     formData.append('image', selectedFile.value)
     formData.append('top_k', 5)
-    // 传递选中的模型名称
     formData.append('model', selectedModel.value)
+
+    // 如果有框选区域，发送裁剪坐标
+    if (crop.value.visible && crop.value.width > 0 && crop.value.height > 0) {
+      const container = cropContainerRef.value
+      if (container) {
+        const imgEl = container.querySelector('.el-image')
+        const imgRect = imgEl.getBoundingClientRect()
+        // 计算相对于图片的坐标
+        formData.append('crop_left', crop.value.x)
+        formData.append('crop_top', crop.value.y)
+        formData.append('crop_width', crop.value.width)
+        formData.append('crop_height', crop.value.height)
+        formData.append('image_width', Math.round(imgRect.width))
+        formData.append('image_height', Math.round(imgRect.height))
+      }
+    }
 
     const response = await fetch(`${API_BASE_URL}/api/classify`, {
       method: 'POST',
@@ -304,6 +564,67 @@ const getProgressColor = (percentage) => {
 
 .image-preview :deep(.el-image) {
   max-height: 280px;
+}
+
+/* 框选功能样式 */
+.image-preview-wrapper {
+  margin-top: 16px;
+}
+
+.crop-container {
+  position: relative;
+  cursor: crosshair;
+  width: 100%;
+  height: 300px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.preview-image {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.crop-box {
+  position: absolute;
+  border: 2px solid #409eff;
+  z-index: 10;
+  background: rgba(64, 158, 255, 0.15);
+  box-shadow: 0 0 10px rgba(64, 158, 255, 0.5);
+}
+
+.handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #409eff;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  z-index: 10000;
+}
+
+.tl {
+  top: -6px;
+  left: -6px;
+  cursor: nwse-resize;
+}
+.tr {
+  top: -6px;
+  right: -6px;
+  cursor: nesw-resize;
+}
+.bl {
+  bottom: -6px;
+  left: -6px;
+  cursor: nesw-resize;
+}
+.br {
+  bottom: -6px;
+  right: -6px;
+  cursor: nwse-resize;
 }
 
 .loading-state {

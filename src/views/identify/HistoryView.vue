@@ -30,7 +30,7 @@
               <span class="confidence-value">{{ item.confidence }}%</span>
             </div>
           </div>
-          
+
           <div class="history-meta">
             <div class="model-badge">
               <el-tag size="small" type="info">{{ item.model_display }}</el-tag>
@@ -41,9 +41,9 @@
           <div class="top-results" v-if="item.top_results && item.top_results.length > 1">
             <div class="results-title">其他可能：</div>
             <div class="results-list">
-              <span 
-                v-for="(result, index) in item.top_results.slice(1, 4)" 
-                :key="index" 
+              <span
+                v-for="(result, index) in item.top_results.slice(1, 4)"
+                :key="index"
                 class="result-tag"
               >
                 {{ result.name_cn }} ({{ result.confidence }}%)
@@ -54,6 +54,16 @@
       </el-card>
     </div>
   </div>
+  <el-pagination
+    v-if="total > 0"
+    background
+    layout="prev, pager, next"
+    :total="total"
+    :page-size="pageSize"
+    :current-page="page"
+    @current-change="handlePageChange"
+    style="margin-top: 20px; text-align: center"
+  />
 </template>
 
 <script setup>
@@ -64,6 +74,9 @@ import axios from 'axios'
 
 const history = ref([])
 const loading = ref(false)
+const page = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
 
 const isLoggedIn = computed(() => {
   const token = localStorage.getItem('token')
@@ -72,16 +85,21 @@ const isLoggedIn = computed(() => {
 
 const fetchHistory = async () => {
   if (!isLoggedIn.value) return
-  
+
   loading.value = true
   try {
     const token = localStorage.getItem('token')
     const response = await axios.get('/api/identify/history', {
-      headers: { Authorization: `Bearer ${token}` }
+      params: {
+        page: page.value,
+        page_size: pageSize.value,
+      },
+      headers: { Authorization: `Bearer ${token}` },
     })
-    
+
     if (response.data.success) {
       history.value = response.data.history
+      total.value = response.data.total
     } else {
       ElMessage.error('获取历史记录失败')
     }
@@ -96,6 +114,12 @@ const fetchHistory = async () => {
 onMounted(() => {
   fetchHistory()
 })
+
+const handlePageChange = (p) => {
+  if (p === page.value) return
+  page.value = p
+  fetchHistory()
+}
 </script>
 
 <style scoped>
@@ -118,7 +142,8 @@ onMounted(() => {
   color: #333;
 }
 
-.no-login, .no-history {
+.no-login,
+.no-history {
   text-align: center;
   padding: 60px 20px;
 }

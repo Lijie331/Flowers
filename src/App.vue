@@ -28,6 +28,10 @@ const checkLoginStatus = () => {
   if (token && user) {
     isLoggedIn.value = true
     userInfo.value = JSON.parse(user)
+    // 调试：查看localStorage中的用户信息
+    console.log('App.vue - localStorage中的user:', user)
+    console.log('App.vue - userInfo.value:', userInfo.value)
+    console.log('App.vue - is_admin值:', userInfo.value?.is_admin)
     // 确保头像URL完整
     if (userInfo.value?.avatar_url) {
       userInfo.value.avatar_url = getFullAvatarUrl(userInfo.value.avatar_url)
@@ -36,6 +40,7 @@ const checkLoginStatus = () => {
   } else {
     isLoggedIn.value = false
     userInfo.value = null
+    console.log('App.vue - 未登录或无用户信息')
   }
 }
 
@@ -204,7 +209,7 @@ const dismissNotification = async (notification) => {
 const handleLoginSuccess = async (user) => {
   isLoggedIn.value = true
   userInfo.value = user
-  // 获取完整用户信息（包括等级）
+  // 获取完整用户信息（包括等级和is_admin）
   const token = localStorage.getItem('token')
   if (token) {
     try {
@@ -212,9 +217,13 @@ const handleLoginSuccess = async (user) => {
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await response.json()
-      if (data.success) {
-        userInfo.value = data.data
-        localStorage.setItem('user', JSON.stringify(data.data))
+      if (data.success && data.data?.profile) {
+        // 合并用户信息，保留 is_admin 字段
+        userInfo.value = { ...userInfo.value, ...data.data.profile }
+        // 保存到 localStorage，包含 is_admin
+        localStorage.setItem('user', JSON.stringify(userInfo.value))
+        console.log('获取到的完整用户信息:', userInfo.value)
+        console.log('is_admin值:', userInfo.value.is_admin)
       }
     } catch (error) {
       console.error('获取用户信息失败', error)
@@ -308,6 +317,7 @@ onMounted(() => {
         <el-menu-item index="/identify">识别</el-menu-item>
         <el-menu-item index="/community">社区</el-menu-item>
         <el-menu-item index="/care">植物养护</el-menu-item>
+        <el-menu-item v-if="userInfo?.is_admin" index="/admin">管理后台</el-menu-item>
 
         <!-- 用户区域 -->
         <el-menu-item class="user-area">
