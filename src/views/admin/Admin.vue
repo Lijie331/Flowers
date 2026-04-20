@@ -120,6 +120,142 @@
         <p>API返回的数据格式需要进一步确认</p>
       </el-card>
     </div>
+
+    <!-- 用户反馈管理 -->
+    <div class="section">
+      <h2>用户反馈</h2>
+
+      <div style="margin-bottom: 15px">
+        <el-select
+          v-model="feedbackStatus"
+          placeholder="全部状态"
+          clearable
+          @change="loadFeedbacks"
+          style="width: 150px"
+        >
+          <el-option label="待处理" value="pending" />
+          <el-option label="已处理" value="processed" />
+          <el-option label="已拒绝" value="rejected" />
+        </el-select>
+        <el-button @click="loadFeedbacks" style="margin-left: 10px">刷新</el-button>
+      </div>
+
+      <el-table :data="feedbacks" border style="width: 100%">
+        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column prop="username" label="用户名" width="100" />
+        <el-table-column prop="type" label="反馈类型" width="120">
+          <template #default="{ row }">
+            <el-tag size="small">{{ getTypeLabel(row.type) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="description" label="描述" show-overflow-tooltip />
+        <el-table-column prop="contact" label="联系方式" width="120" />
+        <el-table-column prop="plant_name" label="识别植物" width="100" />
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="getStatusTagType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="时间" width="160" />
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" size="small" @click="showFeedbackDetail(row)">查看</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-pagination
+        background
+        layout="prev, pager, next"
+        :total="feedbackTotal"
+        :page-size="feedbackPageSize"
+        :current-page="feedbackPage"
+        @current-change="changeFeedbackPage"
+        style="margin-top: 20px; text-align: center"
+      />
+    </div>
+
+    <!-- 反馈详情弹窗 -->
+    <el-dialog v-model="feedbackDetailVisible" title="反馈详情" width="600px">
+      <div v-if="currentFeedback" class="feedback-detail">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="反馈ID">{{ currentFeedback.id }}</el-descriptions-item>
+          <el-descriptions-item label="用户名">{{ currentFeedback.username }}</el-descriptions-item>
+          <el-descriptions-item label="反馈类型">{{ getTypeLabel(currentFeedback.type) }}</el-descriptions-item>
+          <el-descriptions-item label="联系方式">{{ currentFeedback.contact || '无' }}</el-descriptions-item>
+          <el-descriptions-item label="识别植物">{{ currentFeedback.plant_name || '无' }}</el-descriptions-item>
+          <el-descriptions-item label="使用模型">{{ currentFeedback.model_name || '无' }}</el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="getStatusTagType(currentFeedback.status)">{{ getStatusLabel(currentFeedback.status) }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="提交时间">{{ currentFeedback.created_at }}</el-descriptions-item>
+          <el-descriptions-item label="描述" :span="2">{{ currentFeedback.description }}</el-descriptions-item>
+          <el-descriptions-item v-if="currentFeedback.admin_note" label="处理备注" :span="2">{{ currentFeedback.admin_note }}</el-descriptions-item>
+        </el-descriptions>
+
+        <div v-if="currentFeedback.image_path" class="feedback-image">
+          <p><strong>反馈图片：</strong></p>
+          <el-image
+            :src="getImageUrl(currentFeedback.image_path)"
+            :preview-src-list="[getImageUrl(currentFeedback.image_path)]"
+            fit="contain"
+            style="max-width: 100%; max-height: 300px"
+          />
+        </div>
+
+        <div v-if="currentFeedback.status === 'pending'" class="feedback-actions">
+          <el-divider />
+          <h4>处理反馈</h4>
+          <el-form label-width="100px">
+            <el-form-item label="处理方式" required>
+              <el-radio-group v-model="processAction">
+                <el-radio value="add_training">添加到扩展训练数据</el-radio>
+                <el-radio value="mark_correct">标记为正确预测</el-radio>
+                <el-radio value="dismiss">无需处理</el-radio>
+              </el-radio-group>
+            </el-form-item>
+
+            <!-- 添加到扩展训练数据时显示额外字段 -->
+            <template v-if="processAction === 'add_training'">
+              <el-form-item label="花卉Label" required>
+                <el-input
+                  v-model="trainingLabel"
+                  placeholder="请输入花卉的label（如：rose）"
+                />
+              </el-form-item>
+              <el-form-item label="中文名称" required>
+                <el-input
+                  v-model="trainingNameCn"
+                  placeholder="请输入花卉的中文名称（如：玫瑰）"
+                />
+              </el-form-item>
+              <el-form-item label="管理员备注">
+                <el-input
+                  v-model="trainingNote"
+                  type="textarea"
+                  :rows="2"
+                  placeholder="备注信息（选填）"
+                />
+              </el-form-item>
+            </template>
+
+            <!-- 其他处理方式的备注 -->
+            <el-form-item v-else label="处理备注">
+              <el-input
+                v-model="adminNote"
+                type="textarea"
+                :rows="2"
+                placeholder="请输入处理备注"
+              />
+            </el-form-item>
+          </el-form>
+          <div style="text-align: right">
+            <el-button @click="feedbackDetailVisible = false">取消</el-button>
+            <el-button type="primary" :loading="processingLoading" @click="handleProcessFeedback">确认处理</el-button>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -153,6 +289,30 @@ const models = ref([
 const currentModel = ref('clip_rn50')
 const selectedModel = ref('')
 const loadingModel = ref(null)
+
+// 反馈管理
+const feedbacks = ref([])
+const feedbackPage = ref(1)
+const feedbackPageSize = ref(10)
+const feedbackTotal = ref(0)
+const feedbackStatus = ref('')
+const feedbackDetailVisible = ref(false)
+const currentFeedback = ref(null)
+const adminNote = ref('')
+const processAction = ref('add_training')
+const processingLoading = ref(false)
+const trainingLabel = ref('')
+const trainingNameCn = ref('')
+const trainingNote = ref('')
+
+const typeOptionsMap = {
+  incorrect: '识别结果错误',
+  missing: '植物类别缺失',
+  low_confidence: '置信度过低',
+  bug: '功能异常',
+  suggestion: '改进建议',
+  other: '其他问题'
+}
 
 // 获取token
 const getToken = () => localStorage.getItem('token')
@@ -326,7 +486,118 @@ onMounted(() => {
   loadUsers()
   loadHistory()
   loadModels()
+  loadFeedbacks()
 })
+
+// 反馈管理
+const loadFeedbacks = async () => {
+  try {
+    let url = `${API_BASE}/admin/feedbacks?page=${feedbackPage.value}&page_size=${feedbackPageSize.value}`
+    if (feedbackStatus.value) {
+      url += `&status=${feedbackStatus.value}`
+    }
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+    const data = await res.json()
+    console.log('反馈数据:', data)
+    if (data.success) {
+      feedbacks.value = data.feedbacks
+      feedbackTotal.value = data.total
+    } else {
+      ElMessage.error(data.error || '获取反馈列表失败')
+    }
+  } catch (error) {
+    console.error('加载反馈列表失败:', error)
+    ElMessage.error('加载反馈列表失败')
+  }
+}
+
+const changeFeedbackPage = (p) => {
+  feedbackPage.value = p
+  loadFeedbacks()
+}
+
+const getTypeLabel = (type) => typeOptionsMap[type] || type
+
+const getStatusLabel = (status) => {
+  const map = { pending: '待处理', processed: '已处理', rejected: '已拒绝' }
+  return map[status] || status
+}
+
+const getStatusTagType = (status) => {
+  const map = { pending: 'warning', processed: 'success', rejected: 'danger' }
+  return map[status] || 'info'
+}
+
+const getImageUrl = (path) => {
+  if (!path) return ''
+  if (path.startsWith('http')) return path
+  return `http://127.0.0.1:5000${path}`
+}
+
+const showFeedbackDetail = (row) => {
+  currentFeedback.value = row
+  adminNote.value = ''
+  processAction.value = 'add_training'
+  trainingLabel.value = ''
+  trainingNameCn.value = ''
+  trainingNote.value = ''
+  feedbackDetailVisible.value = true
+}
+
+const handleProcessFeedback = async () => {
+  if (!processAction.value) {
+    ElMessage.warning('请选择处理方式')
+    return
+  }
+
+  if (processAction.value === 'add_training') {
+    if (!trainingLabel.value || !trainingNameCn.value) {
+      ElMessage.warning('请填写花卉Label和中文名称')
+      return
+    }
+  }
+
+  processingLoading.value = true
+  try {
+    let requestBody = {
+      action: processAction.value
+    }
+
+    if (processAction.value === 'add_training') {
+      requestBody = {
+        ...requestBody,
+        label: trainingLabel.value,
+        name_cn: trainingNameCn.value,
+        note: trainingNote.value
+      }
+    } else {
+      requestBody.note = adminNote.value
+    }
+
+    const res = await fetch(`${API_BASE}/admin/feedback/${currentFeedback.value.id}/process`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${getToken()}`
+      },
+      body: JSON.stringify(requestBody)
+    })
+    const data = await res.json()
+    if (data.success) {
+      ElMessage.success('处理成功')
+      feedbackDetailVisible.value = false
+      loadFeedbacks()
+    } else {
+      ElMessage.error(data.error || '处理失败')
+    }
+  } catch (error) {
+    ElMessage.error('处理失败')
+  } finally {
+    processingLoading.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -339,6 +610,26 @@ onMounted(() => {
 }
 
 h2 {
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.feedback-detail {
+  padding: 10px 0;
+}
+
+.feedback-image {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.feedback-actions {
+  margin-top: 20px;
+}
+
+.feedback-actions h4 {
   margin-bottom: 15px;
   color: #333;
 }

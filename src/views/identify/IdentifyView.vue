@@ -99,14 +99,25 @@
           <template #header>
             <div class="card-header">
               <span>识别结果</span>
-              <el-button
-                size="small"
-                type="primary"
-                link
-                @click="$router.push('/identify/history')"
-              >
-                查看历史
-              </el-button>
+              <div>
+                <el-button
+                  v-if="results.length"
+                  size="small"
+                  type="primary"
+                  link
+                  @click="openFeedbackDialog"
+                >
+                  反馈
+                </el-button>
+                <el-button
+                  size="small"
+                  type="primary"
+                  link
+                  @click="$router.push('/identify/history')"
+                >
+                  查看历史
+                </el-button>
+              </div>
             </div>
           </template>
 
@@ -171,6 +182,8 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <FeedbackDialog v-model="feedbackDialogVisible" :feedback-data="feedbackData" />
   </div>
 </template>
 
@@ -178,6 +191,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, MagicStick, Loading } from '@element-plus/icons-vue'
+import FeedbackDialog from '@/components/feedback/FeedbackDialog.vue'
 
 // API地址 - 根据环境配置
 const API_BASE_URL = 'http://127.0.0.1:5000'
@@ -200,6 +214,8 @@ const imageUrl = ref('')
 const loading = ref(false)
 const results = ref([])
 const cropContainerRef = ref(null)
+const feedbackDialogVisible = ref(false)
+const feedbackData = ref({ plant_name: '', model_name: '' })
 
 // 图片加载状态
 const imageLoaded = ref(false)
@@ -442,6 +458,14 @@ const handleReset = () => {
   imageUrl.value = ''
   results.value = []
   clearCrop()
+}
+
+const openFeedbackDialog = () => {
+  feedbackData.value = {
+    plant_name: results.value[0]?.name_cn || '',
+    model_name: selectedModel.value
+  }
+  feedbackDialogVisible.value = true
 }
 
 // 发送识别请求
