@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search as SearchIcon, Picture as PictureIcon, ZoomIn as ZoomInIcon, WarnTriangleFilled } from '@element-plus/icons-vue'
+import ImageViewer from '@/components/gallery/ImageViewer.vue'
 
 // API配置
 const API_BASE = 'http://127.0.0.1:5000/api'
@@ -31,6 +32,11 @@ const searchKeyword = ref('')
 const isSearching = ref(false)
 const imageLoading = ref(false)
 const galleryFavorited = ref(false)
+
+// 图片查看器状态
+const viewerVisible = ref(false)
+const viewerImages = ref([])
+const viewerInitialIndex = ref(0)
 
 // 计算属性
 const displayedFlowers = computed(() => {
@@ -253,6 +259,13 @@ const previewImage = (image) => {
   window.open(getFullImageUrl(image.url), '_blank')
 }
 
+// 打开图片查看器
+const openImageViewer = (images, index) => {
+  viewerImages.value = images
+  viewerInitialIndex.value = index
+  viewerVisible.value = true
+}
+
 // 组件挂载时获取数据
 onMounted(async () => {
   fetchFlowerList()
@@ -427,8 +440,8 @@ onMounted(async () => {
                 :alt="image.filename"
                 fit="cover"
                 class="gallery-image"
-                :preview-src-list="flowerImages.map(img => getFullImageUrl(img.url))"
-                :initial-index="index"
+                :preview-src-list="[]"
+                @click="openImageViewer(flowerImages, index)"
                 referrerpolicy="no-referrer"
               >
                 <template #error>
@@ -449,6 +462,14 @@ onMounted(async () => {
         </div>
       </template>
     </el-dialog>
+
+    <!-- 图片查看器 -->
+    <ImageViewer
+      v-model:visible="viewerVisible"
+      :images="viewerImages"
+      :initial-index="viewerInitialIndex"
+      @close="viewerVisible = false"
+    />
   </div>
 </template>
 
