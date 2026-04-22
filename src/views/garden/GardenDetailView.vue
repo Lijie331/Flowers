@@ -19,7 +19,7 @@
               <el-icon><Location /></el-icon> {{ plant.location }}
             </el-tag>
             <el-tag v-if="plant.acquired_date" type="info" size="large">
-              <el-icon><Calendar /></el-icon> {{ plant.acquired_date }}
+              <el-icon><Calendar /></el-icon> {{ formatDate(plant.acquired_date) }}
             </el-tag>
           </div>
         </div>
@@ -648,6 +648,12 @@ const getMoodEmoji = (mood) => ({ happy: '😊', normal: '😐', sad: '😢' })[
 const getCareTypeName = (type) => ({ water: '💧 浇水', fertilize: '🌱 施肥', prune: '✂️ 修剪', repot: '🪴 换盆', other: '🌿 其他' })[type] || type
 const isOverdue = (date) => date ? new Date(date) <= new Date() : false
 const formatTime = (time) => time ? new Date(time).toLocaleString('zh-CN') : ''
+const formatDate = (date) => {
+  if (!date) return ''
+  // 如果是纯日期字符串（如 "2026-04-22"），直接返回
+  if (/^\d{4}-\d{2}-\d{2}/.test(date)) return date
+  return new Date(date).toLocaleDateString('zh-CN')
+}
 
 // 对比图功能
 const recordsWithImages = computed(() => records.value.filter(r => r.image_url))

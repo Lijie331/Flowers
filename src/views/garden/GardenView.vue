@@ -52,7 +52,7 @@
             
             <div class="plant-info">
               <p v-if="plant.location"><el-icon><Location /></el-icon> {{ plant.location }}</p>
-              <p v-if="plant.acquired_date"><el-icon><Calendar /></el-icon> {{ plant.acquired_date }}</p>
+              <p v-if="plant.acquired_date"><el-icon><Calendar /></el-icon> {{ formatDate(plant.acquired_date) }}</p>
             </div>
             
             <div class="plant-notes" v-if="plant.notes">
@@ -512,6 +512,12 @@ const getStatusType = (status) => {
 const getStatusText = (status) => {
   const map = { healthy: '健康', growing: '生长中', dormant: '休眠', sick: '生病' }
   return map[status] || status
+}
+
+const formatDate = (date) => {
+  if (!date) return ''
+  if (/^\d{4}-\d{2}-\d{2}/.test(date)) return date
+  return new Date(date).toLocaleDateString('zh-CN')
 }
 
 onMounted(() => {

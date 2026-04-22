@@ -6,7 +6,7 @@ const quickEntries = [
   { title: '花卉图库', desc: '图像浏览和详情展示', path: '/gallery' },
   { title: '植物识别', desc: '上传图片后快速识别', path: '/identify' },
   { title: '社区交流', desc: '分享养护经验和动态', path: '/community' },
-  { title: '植物养护', desc: '浇水、施肥和病虫害建议', path: '/care' },
+  { title: '我的花园', desc: '记录植物成长和管理养护', path: '/garden' },
 ]
 
 const newsList = [

@@ -316,7 +316,7 @@ onMounted(() => {
         <el-menu-item index="/gallery">图库</el-menu-item>
         <el-menu-item index="/identify">识别</el-menu-item>
         <el-menu-item index="/community">社区</el-menu-item>
-        <el-menu-item index="/care">植物养护</el-menu-item>
+        <el-menu-item index="/garden">我的花园</el-menu-item>
         <el-menu-item v-if="userInfo?.is_admin" index="/admin">管理后台</el-menu-item>
 
         <!-- 用户区域 -->

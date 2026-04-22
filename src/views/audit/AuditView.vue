@@ -81,10 +81,10 @@
             <span class="audit-info-desc">{{ getRiskLevelDesc(post.audit_info.risk_level) }}</span>
             <span class="audit-info-label" v-if="post.audit_info.risk_level">）</span>
           </div>
-          <div class="audit-info-row" v-if="post.audit_info.labels && post.audit_info.labels.length">
+          <div class="audit-info-row" v-if="getDisplayLabels(post.audit_info).length">
             <span class="audit-info-label">违规标签：</span>
-            <el-tag v-for="label in post.audit_info.labels" :key="label" type="danger" size="small" style="margin-right: 4px">
-              {{ getLabelName(label) }}
+            <el-tag v-for="label in getDisplayLabels(post.audit_info)" :key="label" type="danger" size="small" style="margin-right: 4px">
+              {{ label }}
             </el-tag>
           </div>
           <div class="audit-info-row" v-if="post.audit_info.reason">
@@ -128,7 +128,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Check, Close } from '@element-plus/icons-vue'
@@ -186,16 +186,10 @@ const getRiskLevelDesc = (level) => {
   return descs[level] || ''
 }
 
-const labelNameMap = {
-  // P0
- politics: '涉政', terrorism: '暴恐', minor: '未成年人',
-  // P1
-  porn: '色情低俗', violence: '暴力血腥', ad: '广告引流',
-  // P2
-  profanity: '轻微骂人', soft_ad: '软广告'
+const getDisplayLabels = (auditInfo) => {
+  if (!auditInfo) return []
+  return auditInfo.labels_display || auditInfo.labels || []
 }
-
-const getLabelName = (label) => labelNameMap[label] || label
 
 const fetchPosts = async () => {
   const token = localStorage.getItem('token')
