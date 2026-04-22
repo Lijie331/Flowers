@@ -23,6 +23,7 @@
       </el-tab-pane>
       <el-tab-pane label="已通过" name="approved" />
       <el-tab-pane label="已拒绝" name="rejected" />
+      <el-tab-pane label="AI自动通过" name="auto_pass" />
     </el-tabs>
 
     <div v-loading="loading" class="audit-content">
@@ -68,6 +69,30 @@
           >
         </div>
 
+        <!-- 审核详情 -->
+        <div class="audit-info" v-if="post.audit_info">
+          <el-divider />
+          <div class="audit-info-row">
+            <span class="audit-info-label">风险等级：</span>
+            <el-tag :type="getRiskLevelType(post.audit_info.risk_level)" size="small">
+              {{ post.audit_info.risk_level || '未知' }}
+            </el-tag>
+            <span class="audit-info-label" v-if="post.audit_info.risk_level">（</span>
+            <span class="audit-info-desc">{{ getRiskLevelDesc(post.audit_info.risk_level) }}</span>
+            <span class="audit-info-label" v-if="post.audit_info.risk_level">）</span>
+          </div>
+          <div class="audit-info-row" v-if="post.audit_info.labels && post.audit_info.labels.length">
+            <span class="audit-info-label">违规标签：</span>
+            <el-tag v-for="label in post.audit_info.labels" :key="label" type="danger" size="small" style="margin-right: 4px">
+              {{ getLabelName(label) }}
+            </el-tag>
+          </div>
+          <div class="audit-info-row" v-if="post.audit_info.reason">
+            <span class="audit-info-label">违规原因：</span>
+            <span class="audit-info-text">{{ post.audit_info.reason }}</span>
+          </div>
+        </div>
+
         <div class="audit-actions" v-if="activeTab === 'pending'">
           <el-button type="primary" @click="approvePost(post)">
             <el-icon><Check /></el-icon>
@@ -103,7 +128,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Check, Close } from '@element-plus/icons-vue'
@@ -151,6 +176,27 @@ const getStatusText = (status) => {
   return texts[status] || status
 }
 
+const getRiskLevelType = (level) => {
+  const types = { P0: 'danger', P1: 'warning', P2: 'info' }
+  return types[level] || 'info'
+}
+
+const getRiskLevelDesc = (level) => {
+  const descs = { P0: '必拦', P1: '建议拦', P2: '可放行' }
+  return descs[level] || ''
+}
+
+const labelNameMap = {
+  // P0
+ politics: '涉政', terrorism: '暴恐', minor: '未成年人',
+  // P1
+  porn: '色情低俗', violence: '暴力血腥', ad: '广告引流',
+  // P2
+  profanity: '轻微骂人', soft_ad: '软广告'
+}
+
+const getLabelName = (label) => labelNameMap[label] || label
+
 const fetchPosts = async () => {
   const token = localStorage.getItem('token')
   if (!token) {
@@ -162,15 +208,16 @@ const fetchPosts = async () => {
   loading.value = true
   currentPage.value = 1
   try {
-    const statusMap = { pending: 'pending', approved: 'approved', rejected: 'rejected' }
-    const status = statusMap[activeTab.value] || 'pending'
+    let url
+    if (activeTab.value === 'pending') {
+      url = `${API_BASE}/community/audit/list?status=pending&page=1&page_size=10`
+    } else {
+      url = `${API_BASE}/community/audit/processed?admin_status=${activeTab.value}&page=1&page_size=10`
+    }
 
-    const response = await fetch(
-      `${API_BASE}/community/audit/list?status=${status}&page=1&page_size=10`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    )
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
     const data = await response.json()
 
     if (data.success) {
@@ -200,15 +247,16 @@ const loadMore = async () => {
   currentPage.value += 1
   try {
     const token = localStorage.getItem('token')
-    const statusMap = { pending: 'pending', approved: 'approved', rejected: 'rejected' }
-    const status = statusMap[activeTab.value] || 'pending'
+    let url
+    if (activeTab.value === 'pending') {
+      url = `${API_BASE}/community/audit/list?status=pending&page=${currentPage.value}&page_size=10`
+    } else {
+      url = `${API_BASE}/community/audit/processed?admin_status=${activeTab.value}&page=${currentPage.value}&page_size=10`
+    }
 
-    const response = await fetch(
-      `${API_BASE}/community/audit/list?status=${status}&page=${currentPage.value}&page_size=10`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    )
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
     const data = await response.json()
 
     if (data.success) {
@@ -281,6 +329,10 @@ const viewUserProfile = (userId) => {
 }
 
 onMounted(() => {
+  fetchPosts()
+})
+
+watch(activeTab, () => {
   fetchPosts()
 })
 </script>
@@ -388,6 +440,40 @@ onMounted(() => {
   gap: 12px;
   padding-top: 12px;
   border-top: 1px solid #f0f0f0;
+}
+
+.audit-info {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+.audit-info-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.audit-info-row:last-child {
+  margin-bottom: 0;
+}
+
+.audit-info-label {
+  font-size: 13px;
+  color: #606266;
+}
+
+.audit-info-desc {
+  font-size: 13px;
+  color: #909399;
+}
+
+.audit-info-text {
+  font-size: 13px;
+  color: #f56c6c;
 }
 
 .load-more {

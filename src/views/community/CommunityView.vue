@@ -396,14 +396,45 @@ const submitPost = async () => {
         topics: postForm.value.topics, mentions: postForm.value.mentions
       })
     })
+
+    // 处理非200状态码（如P0直接拒绝返回400）
+    if (!response.ok) {
+      const data = await response.json()
+      if (data.audit_result) {
+        const levelLabels = { P0: '涉政/暴恐/未成年人', P1: '色情低俗/暴力血腥/广告引流', P2: '轻微骂人/软广告' }
+        ElMessage.error({
+          message: `内容审核未通过（${data.audit_result.risk_level}级）`,
+          duration: 0,
+          showClose: true
+        })
+        if (data.audit_result.labels && data.audit_result.labels.length) {
+          console.warn('违规标签:', data.audit_result.labels)
+        }
+      } else {
+        ElMessage.error(data.error || '发布失败')
+      }
+      submitting.value = false
+      return
+    }
+
     const data = await response.json()
     if (data.success) {
-      ElMessage.success('发布成功')
+      if (data.need_manual_review) {
+        ElMessage.warning({
+          message: '发布成功，内容正在审核中',
+          duration: 5000,
+          showClose: true
+        })
+      } else {
+        ElMessage.success('发布成功')
+      }
       showPostDialog.value = false
       resetEditor()
       deleteDraft(0)
       fetchPosts()
-    } else ElMessage.error(data.error || '发布失败')
+    } else {
+      ElMessage.error(data.error || '发布失败')
+    }
   } catch { ElMessage.error('发布失败') } finally { submitting.value = false }
 }
 
