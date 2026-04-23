@@ -26,7 +26,14 @@
           </el-radio-group>
         </div>
       </el-tab-pane>
-      <el-tab-pane label="AI自动通过" name="auto_pass" />
+      <el-tab-pane label="AI自动通过" name="auto_pass">
+        <div class="sub-filter" v-if="activeTab === 'auto_pass'">
+          <el-radio-group v-model="autoPassStatus" @change="fetchPosts">
+            <el-radio-button label="auto_pass">AI自动通过</el-radio-button>
+            <el-radio-button label="rejected">已拒绝</el-radio-button>
+          </el-radio-group>
+        </div>
+      </el-tab-pane>
     </el-tabs>
 
     <div v-loading="loading" class="audit-content">
@@ -120,11 +127,15 @@
           <el-button @click="viewUserProfile(post.user_id)"> 查看用户 </el-button>
         </div>
 
-        <div class="audit-actions" v-if="activeTab === 'auto_pass'">
-          <el-button type="primary" @click="allowPost(post)">
+        <div class="audit-actions" v-if="activeTab === 'auto_pass' && autoPassStatus === 'rejected'">
+          <el-button type="primary" @click="restorePost(post)">
             <el-icon><Check /></el-icon>
-            允许
+            恢复
           </el-button>
+          <el-button @click="viewUserProfile(post.user_id)"> 查看用户 </el-button>
+        </div>
+
+        <div class="audit-actions" v-if="activeTab === 'auto_pass' && autoPassStatus === 'auto_pass'">
           <el-button type="danger" @click="blockPost(post)">
             <el-icon><Close /></el-icon>
             禁止
@@ -169,6 +180,7 @@ const loadingMore = ref(false)
 const posts = ref([])
 const activeTab = ref('manual')
 const manualStatus = ref('pending')
+const autoPassStatus = ref('auto_pass')
 const pendingCount = ref(0)
 const currentPage = ref(1)
 const hasMore = ref(true)
@@ -264,7 +276,7 @@ const fetchPosts = async () => {
         url = `${API_BASE}/community/audit/processed?admin_status=${manualStatus.value}&page=1&page_size=10`
       }
     } else {
-      url = `${API_BASE}/community/audit/processed?admin_status=${activeTab.value}&page=1&page_size=10`
+      url = `${API_BASE}/community/audit/processed?admin_status=${autoPassStatus.value}&page=1&page_size=10`
     }
 
     const response = await fetch(url, {
@@ -307,7 +319,7 @@ const loadMore = async () => {
         url = `${API_BASE}/community/audit/processed?admin_status=${manualStatus.value}&page=${currentPage.value}&page_size=10`
       }
     } else {
-      url = `${API_BASE}/community/audit/processed?admin_status=${activeTab.value}&page=${currentPage.value}&page_size=10`
+      url = `${API_BASE}/community/audit/processed?admin_status=${autoPassStatus.value}&page=${currentPage.value}&page_size=10`
     }
 
     const response = await fetch(url, {
@@ -414,8 +426,26 @@ const allowPost = async (post) => {
     const data = await response.json()
     if (data.success) {
       ElMessage.success('已允许')
-      // 更新本地帖子状态，不从列表移除
       post.status = 'approved'
+    } else {
+      ElMessage.error(data.error || '操作失败')
+    }
+  } catch {
+    ElMessage.error('操作失败')
+  }
+}
+
+const restorePost = async (post) => {
+  const token = localStorage.getItem('token')
+  try {
+    const response = await fetch(`${API_BASE}/community/audit/${post.id}/allow`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await response.json()
+    if (data.success) {
+      ElMessage.success('已恢复')
+      posts.value = posts.value.filter((p) => p.id !== post.id)
     } else {
       ElMessage.error(data.error || '操作失败')
     }
@@ -433,6 +463,10 @@ watch(activeTab, () => {
 })
 
 watch(manualStatus, () => {
+  fetchPosts()
+})
+
+watch(autoPassStatus, () => {
   fetchPosts()
 })
 </script>

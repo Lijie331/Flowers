@@ -12,43 +12,39 @@ const quickEntries = [
 const newsList = [
   {
     id: 1,
-    title: '春季花卉养护指南：三月适合种植哪些花卉？',
+    title: '三角梅施肥技巧大全',
     date: '2026-03-13',
     summary:
-      '春季是种植花卉的最佳季节，本文为你推荐三月适合种植的花卉品种，包括郁金香、风信子、水仙等，并提供详细的养护技巧。',
+      '三角梅施肥技巧大全，学会这几点，四季花开不断',
     tag: '养护技巧',
+    url: 'https://www.china-flower.com/newsinfo/11119712.html',
   },
   {
     id: 2,
-    title: '热门室内绿植排行榜，净化空气的最佳选择',
+    title: '春季养花必知的五个要点',
     date: '2026-03-12',
     summary:
-      '室内绿植不仅能美化环境，还能净化空气。本文介绍最受欢迎的室内绿植，如绿萝、吊兰、虎皮兰等，让你轻松打造绿色家居。',
+      '春季养花必知的五个要点，新手也能养出漂亮花',
     tag: '室内植物',
+    url: 'https://www.china-flower.com/newsinfo/10755393.html',
   },
   {
     id: 3,
-    title: '新发现！科学家培育出耐旱玫瑰品种',
+    title: '茶花养殖方法和注意事项',
     date: '2026-03-10',
     summary:
-      '经过多年研究，农业科学家成功培育出一种耐旱玫瑰品种，能够在缺水环境下正常生长，为干旱地区的花卉种植带来了希望。',
+      '茶花养殖方法和注意事项，简单实用的养殖技巧',
     tag: '科研动态',
+    url: 'https://www.china-flower.com/newsinfo/8140098.html',
   },
   {
     id: 4,
-    title: '多肉植物春季换盆攻略：时机与方法详解',
+    title: '家里养殖三角梅的常见问题',
     date: '2026-03-08',
     summary:
-      '春季是多肉植物换盆的最佳时期，本文详细介绍换盆的时机、方法和注意事项，帮助你让多肉植物健康成长。',
+      '家里养殖三角梅的常见问题及其解决方法',
     tag: '多肉植物',
-  },
-  {
-    id: 5,
-    title: '花卉病虫害防治：常见问题及解决方案',
-    date: '2026-03-05',
-    summary:
-      '花卉养护过程中常见的病虫害问题，如何预防和治疗？本文汇总了最常见的问题和对应的解决方案，让你轻松应对。',
-    tag: '病虫害防治',
+    url: 'https://www.china-flower.com/newsinfo/10990063.html',
   },
 ]
 </script>
@@ -114,13 +110,13 @@ const newsList = [
               type="primary"
             >
               <el-card class="news-item" shadow="hover">
-                <div class="news-content">
+                <a :href="news.url" target="_blank" class="news-content">
                   <div class="news-title">
                     <h4>{{ news.title }}</h4>
                     <el-tag size="small" type="success">{{ news.tag }}</el-tag>
                   </div>
                   <p class="news-summary">{{ news.summary }}</p>
-                </div>
+                </a>
               </el-card>
             </el-timeline-item>
           </el-timeline>
@@ -231,7 +227,10 @@ const newsList = [
 }
 
 .news-content {
+  display: block;
   padding: 4px 0;
+  text-decoration: none;
+  color: inherit;
 }
 
 .news-title {
