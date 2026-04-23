@@ -14,15 +14,18 @@
     </el-card>
 
     <el-tabs v-model="activeTab" class="audit-tabs">
-      <el-tab-pane label="待审核" name="pending">
+      <el-tab-pane name="manual">
         <template #label>
-          <span
-            >待审核 <el-badge :value="pendingCount" :hidden="pendingCount === 0" type="warning"
-          /></span>
+          <span>人工审核 <el-badge :value="pendingCount" :hidden="pendingCount === 0" type="warning" /></span>
         </template>
+        <div class="sub-filter" v-if="activeTab === 'manual'">
+          <el-radio-group v-model="manualStatus" @change="fetchPosts">
+            <el-radio-button label="pending">待审核</el-radio-button>
+            <el-radio-button label="approved">已通过</el-radio-button>
+            <el-radio-button label="rejected">已拒绝</el-radio-button>
+          </el-radio-group>
+        </div>
       </el-tab-pane>
-      <el-tab-pane label="已通过" name="approved" />
-      <el-tab-pane label="已拒绝" name="rejected" />
       <el-tab-pane label="AI自动通过" name="auto_pass" />
     </el-tabs>
 
@@ -93,7 +96,7 @@
           </div>
         </div>
 
-        <div class="audit-actions" v-if="activeTab === 'pending'">
+        <div class="audit-actions" v-if="activeTab === 'manual' && manualStatus === 'pending'">
           <el-button type="primary" @click="approvePost(post)">
             <el-icon><Check /></el-icon>
             通过
@@ -101,6 +104,30 @@
           <el-button type="danger" @click="showRejectDialog(post)">
             <el-icon><Close /></el-icon>
             拒绝
+          </el-button>
+          <el-button @click="viewUserProfile(post.user_id)"> 查看用户 </el-button>
+        </div>
+
+        <div class="audit-actions" v-if="activeTab === 'manual' && manualStatus !== 'pending'">
+          <el-button type="primary" @click="allowPost(post)">
+            <el-icon><Check /></el-icon>
+            允许
+          </el-button>
+          <el-button type="danger" @click="blockPost(post)">
+            <el-icon><Close /></el-icon>
+            禁止
+          </el-button>
+          <el-button @click="viewUserProfile(post.user_id)"> 查看用户 </el-button>
+        </div>
+
+        <div class="audit-actions" v-if="activeTab === 'auto_pass'">
+          <el-button type="primary" @click="allowPost(post)">
+            <el-icon><Check /></el-icon>
+            允许
+          </el-button>
+          <el-button type="danger" @click="blockPost(post)">
+            <el-icon><Close /></el-icon>
+            禁止
           </el-button>
           <el-button @click="viewUserProfile(post.user_id)"> 查看用户 </el-button>
         </div>
@@ -140,7 +167,8 @@ const IMAGE_BASE = 'http://127.0.0.1:5000'
 const loading = ref(false)
 const loadingMore = ref(false)
 const posts = ref([])
-const activeTab = ref('pending')
+const activeTab = ref('manual')
+const manualStatus = ref('pending')
 const pendingCount = ref(0)
 const currentPage = ref(1)
 const hasMore = ref(true)
@@ -186,9 +214,35 @@ const getRiskLevelDesc = (level) => {
   return descs[level] || ''
 }
 
+// 标签中文映射
+const LABEL_DISPLAY_MAP = {
+  'politics': '涉政敏感',
+  'terror': '暴恐血腥',
+  'extremism': '极端主义',
+  'cult': '邪教封建迷信',
+  'illegal_content': '违法内容',
+  'inappropriate_profanity': '不当脏话',
+  'political_figure': '政治敏感人物',
+  'porn': '色情低俗',
+  'vulgar': '低俗内容',
+  'violence': '暴力内容',
+  'advertising': '广告推广',
+  'junk': '垃圾广告',
+  'fraud': '欺诈诈骗',
+  'hate_speech': '仇恨言论',
+  'personal_attack': '人身攻击',
+  'inappropriate': '调性异常',
+  '钓鱼': '钓鱼诈骗',
+  'minor_abuse': '未成年人违规',
+  'soft_ad': '软色情广告',
+  '诱导未成年人': '诱导未成年人',
+}
+
 const getDisplayLabels = (auditInfo) => {
   if (!auditInfo) return []
-  return auditInfo.labels_display || auditInfo.labels || []
+  // 优先使用 labels_display，否则动态转换 labels
+  const rawLabels = auditInfo.labels_display || auditInfo.labels || []
+  return rawLabels.map(label => LABEL_DISPLAY_MAP[label] || label)
 }
 
 const fetchPosts = async () => {
@@ -203,8 +257,12 @@ const fetchPosts = async () => {
   currentPage.value = 1
   try {
     let url
-    if (activeTab.value === 'pending') {
-      url = `${API_BASE}/community/audit/list?status=pending&page=1&page_size=10`
+    if (activeTab.value === 'manual') {
+      if (manualStatus.value === 'pending') {
+        url = `${API_BASE}/community/audit/list?status=pending&page=1&page_size=10`
+      } else {
+        url = `${API_BASE}/community/audit/processed?admin_status=${manualStatus.value}&page=1&page_size=10`
+      }
     } else {
       url = `${API_BASE}/community/audit/processed?admin_status=${activeTab.value}&page=1&page_size=10`
     }
@@ -218,7 +276,7 @@ const fetchPosts = async () => {
       posts.value = data.data.posts || []
       hasMore.value = data.data.page < data.data.total_pages
 
-      if (activeTab.value === 'pending') {
+      if (activeTab.value === 'manual' && manualStatus.value === 'pending') {
         pendingCount.value = data.data.total
       }
     } else if (data.error?.includes('管理员')) {
@@ -242,8 +300,12 @@ const loadMore = async () => {
   try {
     const token = localStorage.getItem('token')
     let url
-    if (activeTab.value === 'pending') {
-      url = `${API_BASE}/community/audit/list?status=pending&page=${currentPage.value}&page_size=10`
+    if (activeTab.value === 'manual') {
+      if (manualStatus.value === 'pending') {
+        url = `${API_BASE}/community/audit/list?status=pending&page=${currentPage.value}&page_size=10`
+      } else {
+        url = `${API_BASE}/community/audit/processed?admin_status=${manualStatus.value}&page=${currentPage.value}&page_size=10`
+      }
     } else {
       url = `${API_BASE}/community/audit/processed?admin_status=${activeTab.value}&page=${currentPage.value}&page_size=10`
     }
@@ -322,11 +384,55 @@ const viewUserProfile = (userId) => {
   router.push(`/profile/${userId}`)
 }
 
+const blockPost = async (post) => {
+  const token = localStorage.getItem('token')
+  try {
+    const response = await fetch(`${API_BASE}/community/audit/${post.id}/block`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await response.json()
+    if (data.success) {
+      ElMessage.success('已禁止')
+      // 更新本地帖子状态，不从列表移除
+      post.status = 'rejected'
+    } else {
+      ElMessage.error(data.error || '操作失败')
+    }
+  } catch {
+    ElMessage.error('操作失败')
+  }
+}
+
+const allowPost = async (post) => {
+  const token = localStorage.getItem('token')
+  try {
+    const response = await fetch(`${API_BASE}/community/audit/${post.id}/allow`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await response.json()
+    if (data.success) {
+      ElMessage.success('已允许')
+      // 更新本地帖子状态，不从列表移除
+      post.status = 'approved'
+    } else {
+      ElMessage.error(data.error || '操作失败')
+    }
+  } catch {
+    ElMessage.error('操作失败')
+  }
+}
+
 onMounted(() => {
   fetchPosts()
 })
 
 watch(activeTab, () => {
+  fetchPosts()
+})
+
+watch(manualStatus, () => {
   fetchPosts()
 })
 </script>
@@ -358,6 +464,13 @@ watch(activeTab, () => {
   background: white;
   padding: 16px;
   border-radius: 8px;
+}
+
+.sub-filter {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
 }
 
 .audit-content {
