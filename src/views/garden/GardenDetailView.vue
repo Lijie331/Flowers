@@ -561,12 +561,19 @@ const fetchSchedules = async () => {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     const data = await response.json()
+    console.log('养护计划API响应:', data)
     if (data.success) {
-      schedules.value = data.data.schedules || []
+      schedules.value = data.data?.schedules || []
       upcomingSchedules.value = schedules.value.filter(s => isOverdue(s.next_due))
+    } else {
+      console.error('获取养护计划失败:', data.error)
     }
-  } catch { ElMessage.error('获取计划失败') }
-  finally { loadingSchedule.value = false }
+  } catch (error) {
+    console.error('获取养护计划异常:', error)
+    ElMessage.error('获取计划失败')
+  } finally {
+    loadingSchedule.value = false
+  }
 }
 
 // 养护计划
@@ -646,13 +653,57 @@ const getStatusType = (status) => ({ healthy: 'success', growing: 'primary', dor
 const getStatusText = (status) => ({ healthy: '健康', growing: '生长中', dormant: '休眠', sick: '生病' })[status] || status
 const getMoodEmoji = (mood) => ({ happy: '😊', normal: '😐', sad: '😢' })[mood] || '😐'
 const getCareTypeName = (type) => ({ water: '💧 浇水', fertilize: '🌱 施肥', prune: '✂️ 修剪', repot: '🪴 换盆', other: '🌿 其他' })[type] || type
-const isOverdue = (date) => date ? new Date(date) <= new Date() : false
-const formatTime = (time) => time ? new Date(time).toLocaleString('zh-CN') : ''
+
+// 将日期字符串或对象转换为 Date 对象
+const parseDate = (dateVal) => {
+  if (!dateVal) return null
+  if (dateVal instanceof Date) return dateVal
+  // 如果是 MySQL 返回的 date 对象（格式如 "2026-04-23" 或类似对象）
+  if (typeof dateVal === 'object' && dateVal.year !== undefined) {
+    // MySQL datetime.date 对象
+    return new Date(dateVal.year, dateVal.month - 1, dateVal.day)
+  }
+  const d = new Date(dateVal)
+  if (isNaN(d.getTime())) return null
+  return d
+}
+
+// 检查是否已到期（比较日期部分）
+const isOverdue = (dateVal) => {
+  const dueDate = parseDate(dateVal)
+  if (!dueDate) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  dueDate.setHours(0, 0, 0, 0)
+  return dueDate <= today
+}
+
+const formatTime = (time) => {
+  if (!time) return ''
+  const date = parseDate(time)
+  if (!date) return time
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+}
+
 const formatDate = (date) => {
   if (!date) return ''
+  // 如果是 MySQL date 对象
+  if (typeof date === 'object' && date.year !== undefined) {
+    return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`
+  }
   // 如果是纯日期字符串（如 "2026-04-22"），直接返回
   if (/^\d{4}-\d{2}-\d{2}/.test(date)) return date
-  return new Date(date).toLocaleDateString('zh-CN')
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return date
+  return d.toLocaleDateString('zh-CN')
 }
 
 // 对比图功能
@@ -694,6 +745,7 @@ const shareCompare = () => {
 onMounted(async () => {
   await fetchPlant()
   await fetchRecords()
+  await fetchSchedules()
 })
 </script>
 
