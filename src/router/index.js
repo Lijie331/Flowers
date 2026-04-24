@@ -22,6 +22,7 @@ const router = createRouter({
       path: '/identify',
       name: 'identify',
       component: () => import('@/views/identify/IdentifyView.vue'),
+      meta: { keepAlive: true },
     },
     {
       path: '/identify/history',

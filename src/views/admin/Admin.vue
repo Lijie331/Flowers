@@ -5,7 +5,20 @@
     <!-- 用户管理 -->
     <div class="section">
       <h2>用户管理</h2>
-      <el-button type="primary" @click="loadUsers">刷新用户列表</el-button>
+      <div class="search-bar">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="输入用户ID或用户名搜索"
+          clearable
+          @clear="loadUsers"
+          @keyup.enter="loadUsers"
+          style="width: 250px"
+        >
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
+        <el-button type="primary" @click="loadUsers">搜索</el-button>
+        <el-button @click="loadUsers">刷新</el-button>
+      </div>
 
       <el-table :data="users" border style="width: 100%; margin-top: 15px">
         <el-table-column prop="id" label="ID" width="80" />
@@ -40,16 +53,17 @@
       <h2>识别记录</h2>
 
       <div style="margin-bottom: 15px">
-        <el-select
-          v-model="selectedUserId"
-          placeholder="查看所有用户"
+        <el-input
+          v-model="historyUserId"
+          placeholder="输入用户ID搜索"
           clearable
-          @change="loadHistory"
+          @clear="loadHistory"
+          @keyup.enter="loadHistory"
           style="width: 200px"
         >
-          <el-option v-for="u in users" :key="u.id" :label="u.username" :value="u.id" />
-        </el-select>
-        <el-button @click="loadHistory" style="margin-left: 10px">刷新</el-button>
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
+        <el-button @click="loadHistory" style="margin-left: 10px">搜索</el-button>
       </div>
 
       <el-table :data="history" border style="width: 100%">
@@ -262,6 +276,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 
 const API_BASE = 'http://127.0.0.1:5000/api'
 
@@ -277,7 +292,7 @@ const history = ref([])
 const page = ref(1)
 const pageSize = ref(10)
 const historyTotal = ref(0)
-const selectedUserId = ref('')
+const historyUserId = ref('')
 
 // 模型
 const models = ref([
@@ -289,6 +304,10 @@ const models = ref([
 const currentModel = ref('clip_rn50')
 const selectedModel = ref('')
 const loadingModel = ref(null)
+
+// 用户搜索
+const searchKeyword = ref('')
+const searchLoading = ref(false)
 
 // 反馈管理
 const feedbacks = ref([])
@@ -319,8 +338,13 @@ const getToken = () => localStorage.getItem('token')
 
 // 加载用户
 const loadUsers = async () => {
+  searchLoading.value = true
   try {
-    const res = await fetch(`${API_BASE}/admin/users`, {
+    const keyword = searchKeyword.value.trim()
+    const url = keyword
+      ? `${API_BASE}/admin/users?keyword=${encodeURIComponent(keyword)}`
+      : `${API_BASE}/admin/users`
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${getToken()}` },
     })
     const data = await res.json()
@@ -336,6 +360,8 @@ const loadUsers = async () => {
   } catch (error) {
     console.error('加载用户失败:', error)
     ElMessage.error('加载用户失败')
+  } finally {
+    searchLoading.value = false
   }
 }
 
@@ -393,8 +419,8 @@ const deleteUser = async (user) => {
 const loadHistory = async () => {
   try {
     let url = `${API_BASE}/admin/history?page=${page.value}&page_size=${pageSize.value}`
-    if (selectedUserId.value) {
-      url += `&user_id=${selectedUserId.value}`
+    if (historyUserId.value) {
+      url += `&user_id=${historyUserId.value.trim()}`
     }
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${getToken()}` },
@@ -607,6 +633,12 @@ const handleProcessFeedback = async () => {
 
 .section {
   margin-bottom: 40px;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 h2 {
